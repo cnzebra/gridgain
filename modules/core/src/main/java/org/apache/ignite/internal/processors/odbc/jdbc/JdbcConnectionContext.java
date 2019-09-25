@@ -73,7 +73,7 @@ public class JdbcConnectionContext extends ClientListenerAbstractConnectionConte
     static final ClientListenerProtocolVersion VER_2_8_2 = ClientListenerProtocolVersion.create(2, 8, 2);
 
     /** Current version. */
-    private static final ClientListenerProtocolVersion CURRENT_VER = VER_2_8_2;
+    public static final ClientListenerProtocolVersion CURRENT_VER = VER_2_8_2;
 
     /** Supported versions. */
     private static final Set<ClientListenerProtocolVersion> SUPPORTED_VERS = new HashSet<>();
