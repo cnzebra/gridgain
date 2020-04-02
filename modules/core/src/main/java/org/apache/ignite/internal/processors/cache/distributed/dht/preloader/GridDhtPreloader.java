@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -189,7 +190,8 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
     /** {@inheritDoc} */
     @Override public GridDhtPreloaderAssignments generateAssignments(
         GridDhtPartitionExchangeId exchId,
-        GridDhtPartitionsExchangeFuture exchFut
+        GridDhtPartitionsExchangeFuture exchFut,
+        Set<UUID> historicalExclusions
     ) {
         assert exchFut == null || exchFut.isDone();
 
@@ -274,7 +276,7 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
                 if (grp.persistenceEnabled() && exchFut != null) {
                     UUID nodeId = exchFut.partitionHistorySupplier(grp.groupId(), p, part.initialUpdateCounter());
 
-                    if (nodeId != null)
+                    if (nodeId != null && !historicalExclusions.contains(nodeId))
                         histSupplier = ctx.discovery().node(nodeId);
                 }
 
@@ -326,7 +328,7 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
         if (log.isInfoEnabled()) {
             if (!skippedPartitionsLackHistSupplier.isEmpty() && grp.persistenceEnabled()) {
                 log.info("Unable to perform historical rebalancing because " +
-                    "a history supplier is not available [grpId=" + grp.groupId() + ", grpName=" + grp.name() +
+                    "a history supplier is not available [grpId=" + grp.groupId() + ", grpName=" + grp.cacheOrGroupName() +
                     ", parts=" + S.compact(
                         Arrays.stream(skippedPartitionsLackHistSupplier.array()).boxed().collect(Collectors.toList())) +
                     ", topVer=" + topVer + ']');
@@ -334,7 +336,7 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
 
             if (!skippedPartitionsCleared.isEmpty() && grp.persistenceEnabled()) {
                 log.info("Unable to perform historical rebalancing because a clearing is required for partitions " +
-                    "[grpId=" + grp.groupId() + ", grpName=" + grp.name() +
+                    "[grpId=" + grp.groupId() + ", grpName=" + grp.cacheOrGroupName() +
                     ", parts=" + S.compact(
                         Arrays.stream(skippedPartitionsCleared.array()).boxed().collect(Collectors.toList())) +
                     ", topVer=" + topVer + ']');

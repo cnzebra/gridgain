@@ -55,6 +55,9 @@ public class IgniteRebalanceIteratorImpl implements IgniteRebalanceIterator {
     private boolean reachedEnd;
 
     /** */
+    private boolean reachedHistEnd;
+
+    /** */
     private boolean closed;
 
     /**
@@ -97,6 +100,11 @@ public class IgniteRebalanceIteratorImpl implements IgniteRebalanceIterator {
     }
 
     /** {@inheritDoc} */
+    @Override public synchronized boolean allHistoricalPartitionsDone() {
+        return historicalIterator == null || reachedHistEnd;
+    }
+
+    /** {@inheritDoc} */
     @Override public synchronized boolean isPartitionDone(int partId) {
         if (missingParts.contains(partId))
             return false;
@@ -125,6 +133,8 @@ public class IgniteRebalanceIteratorImpl implements IgniteRebalanceIterator {
         if (historicalIterator != null && historicalIterator.hasNextX())
             return true;
 
+        reachedHistEnd = true;
+
         return current != null && current.getValue().hasNextX();
     }
 
@@ -132,6 +142,8 @@ public class IgniteRebalanceIteratorImpl implements IgniteRebalanceIterator {
     @Override public synchronized CacheDataRow nextX() throws IgniteCheckedException {
         if (historicalIterator != null && historicalIterator.hasNextX())
             return historicalIterator.nextX();
+
+        reachedHistEnd = true;
 
         if (current == null || !current.getValue().hasNextX())
             throw new NoSuchElementException();

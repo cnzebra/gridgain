@@ -1218,6 +1218,14 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
     /**
      * @param exchId Exchange ID.
+     * @param nodeIds Set of node ids that should not be used for historical rebalance.
+     */
+    public void forceReassign(GridDhtPartitionExchangeId exchId, Set<UUID> nodeIds) {
+        exchWorker.forceReassign(exchId, nodeIds);
+    }
+
+    /**
+     * @param exchId Exchange ID.
      * @return Rebalance future.
      */
     public IgniteInternalFuture<Boolean> forceRebalance(GridDhtPartitionExchangeId exchId) {
@@ -2918,6 +2926,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         /** Indicates that worker terminates because the node needs to reconnect to the cluster. */
         private boolean reconnectNeeded;
 
+        /** Rebalance reassign context. */
+        private final RebalanceReassignContext reassignCtx = new RebalanceReassignContext();
+
         /**
          * Constructor.
          */
@@ -2932,6 +2943,15 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         void forceReassign(GridDhtPartitionExchangeId exchId) {
             if (!hasPendingExchange() && !busy)
                 futQ.add(new RebalanceReassignExchangeTask(exchId));
+        }
+
+        /**
+         * @param exchId Exchange ID.
+         * @param nodeIds Set of node ids that should not be used for historical rebalance.
+         */
+        void forceReassign(GridDhtPartitionExchangeId exchId, Set<UUID> nodeIds) {
+            if (!hasPendingServerExchange() && !busy)
+                futQ.add(new RebalanceReassignExchangeTask(exchId, nodeIds));
         }
 
         /**
@@ -3220,8 +3240,29 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                         if (isCancelled())
                             break;
 
-                        if (task instanceof RebalanceReassignExchangeTask)
-                            exchId = ((RebalanceReassignExchangeTask) task).exchangeId();
+                        if (task instanceof RebalanceReassignExchangeTask) {
+                            RebalanceReassignExchangeTask reassignTask = (RebalanceReassignExchangeTask)task;
+
+                            exchId = reassignTask.exchangeId();
+
+                            reassignCtx.addToHistoricalExclusions(exchId, reassignTask.historicalExclusions());
+
+                            if (!F.isEmpty(reassignTask.historicalExclusions())) {
+                                ExchangeFutureSet exchFuts0 = exchFuts;
+
+                                if (exchFuts0 != null) {
+                                    for (GridDhtPartitionsExchangeFuture fut : exchFuts0.values()) {
+                                        if (fut.exchangeId().equals(exchId)) {
+                                            exchFut = fut;
+
+                                            assert fut.isDone();
+
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         else if (task instanceof ForceRebalanceExchangeTask) {
                             forcePreload = true;
 
@@ -3380,6 +3421,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                             IgniteCacheSnapshotManager snp = cctx.snapshot();
 
+                            Set<UUID> historicalExclusions = reassignCtx.historicalExclusions(exchId);
+
                             for (final CacheGroupContext grp : cctx.cache().cacheGroups()) {
                                 long delay = grp.config().getRebalanceDelay();
 
@@ -3389,7 +3432,7 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                                 // Don't delay for dummy reassigns to avoid infinite recursion.
                                 if ((delay == 0 || forcePreload) && !disableRebalance)
-                                    assigns = grp.preloader().generateAssignments(exchId, exchFut);
+                                    assigns = grp.preloader().generateAssignments(exchId, exchFut, historicalExclusions);
 
                                 assignsMap.put(grp.groupId(), assigns);
 
@@ -3973,6 +4016,54 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             int result = order;
             result = 31 * result + mode.hashCode();
             return result;
+        }
+    }
+
+    /**
+     * Represents reassign context and stores node ids that cannot be used for historical rebalance for the given exchange.
+     */
+    private static class RebalanceReassignContext {
+        /** Last processed exchange id. */
+        private GridDhtPartitionExchangeId exchId;
+
+        /** Set of nodes that cannot be used for wal rebalancing due to some reason. */
+        private Set<UUID> exclusions = new HashSet<>();
+
+        /**
+         * Adds a new node to the set of exclusions for historical rebalance.
+         *
+         * @param exchId Exchange id.
+         * @param nodeIds Node ids to be added to historical exclusions.
+         */
+        public void addToHistoricalExclusions(GridDhtPartitionExchangeId exchId, @Nullable Set<UUID> nodeIds) {
+            resetContextIfNeeded(exchId);
+
+            if (!F.isEmpty(nodeIds))
+                exclusions.addAll(nodeIds);
+        }
+
+        /**
+         * Returns set of nodes that cannot be used for historical rebalancing.
+         *
+         * @return Set of nodes that cannot be used for historical rebalancing.
+         */
+        public Set<UUID> historicalExclusions(GridDhtPartitionExchangeId exchId) {
+            resetContextIfNeeded(exchId);
+
+            return exclusions;
+        }
+
+        /**
+         * Cleans this context if the given {@code exchId} differ from the tracked one.
+         *
+         * @param exchId Exchange id.
+         */
+        private void resetContextIfNeeded(GridDhtPartitionExchangeId exchId) {
+            if (this.exchId == null || !this.exchId.equals(exchId)) {
+                this.exchId = exchId;
+
+                exclusions.clear();
+            }
         }
     }
 }

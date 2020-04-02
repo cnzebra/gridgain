@@ -475,6 +475,11 @@ public class GridDhtPartitionSupplier {
                 log.info("Finished supplying rebalancing [" + supplyRoutineInfo(topicId, nodeId, demandMsg) + "]");
         }
         catch (Throwable t) {
+            boolean fallbackToFullRebalance = (iter == null) ?
+                // Rebalance iterator has not been created, perhaps, due to unable to replay wal.
+                demandMsg.partitions().hasHistorical() :
+                !iter.allHistoricalPartitionsDone();
+
             if (iter != null && !iter.isClosed()) {
                 try {
                     iter.close();
@@ -499,24 +504,29 @@ public class GridDhtPartitionSupplier {
             }
             else
                 U.error(log, "Failed to continue supplying ["
-                    + supplyRoutineInfo(topicId, nodeId, demandMsg) + "]", t);
+                    + supplyRoutineInfo(topicId, nodeId, demandMsg) + ']', t);
 
             try {
                 if (sctx != null)
                     clearContext(sctx, log);
-                else if (iter != null)
-                    iter.close();
             }
             catch (Throwable t1) {
                 U.error(log, "Failed to cleanup supplying context ["
-                    + supplyRoutineInfo(topicId, nodeId, demandMsg) + "]", t1);
+                    + supplyRoutineInfo(topicId, nodeId, demandMsg) + ']', t1);
             }
 
             if (!sendErrMsg)
                 return;
 
             try {
-                GridDhtPartitionSupplyMessageV2 errMsg = new GridDhtPartitionSupplyMessageV2(
+                GridDhtPartitionSupplyMessage errMsg;
+
+                if (fallbackToFullRebalance) {
+                    // Mark the last checkpoint as not applicable for WAL rebalance and try to switch to full rebalance.
+                    grp.shared().database().lastCheckpointInapplicableForWalRebalance(grp.groupId());
+                }
+
+                errMsg = new GridDhtPartitionSupplyMessageV2(
                     demandMsg.rebalanceId(),
                     grp.groupId(),
                     demandMsg.topologyVersion(),
@@ -528,13 +538,17 @@ public class GridDhtPartitionSupplier {
             }
             catch (Throwable t1) {
                 U.error(log, "Failed to send supply error message ["
-                    + supplyRoutineInfo(topicId, nodeId, demandMsg) + "]", t1);
+                    + supplyRoutineInfo(topicId, nodeId, demandMsg) + ']', t1);
             }
 
-            grp.shared().kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR,
-                new IgniteCheckedException("Failed to continue supplying ["
-                    + supplyRoutineInfo(topicId, nodeId, demandMsg) + "]", t)
-            ));
+            // If fallback to full rebalance is possible then let's try to switch to it
+            // instead of triggering failure handler.
+            if (!fallbackToFullRebalance) {
+                grp.shared().kernalContext().failure().process(new FailureContext(FailureType.CRITICAL_ERROR,
+                    new IgniteCheckedException("Failed to continue supplying ["
+                        + supplyRoutineInfo(topicId, nodeId, demandMsg) + ']', t)
+                ));
+            }
         }
     }
 
@@ -580,7 +594,7 @@ public class GridDhtPartitionSupplier {
      * @param demander Recipient of supply message.
      * @param demandMsg Demand message.
      * @param supplyMsg Supply message.
-     * @param contextId Supply context id.
+     * @param ctxId Supply context id.
      * @return {@code True} if message was sent, {@code false} if recipient left grid.
      * @throws IgniteCheckedException If failed.
      */
@@ -589,7 +603,7 @@ public class GridDhtPartitionSupplier {
         ClusterNode demander,
         GridDhtPartitionDemandMessage demandMsg,
         GridDhtPartitionSupplyMessage supplyMsg,
-        T3<UUID, Integer, AffinityTopologyVersion> contextId
+        T3<UUID, Integer, AffinityTopologyVersion> ctxId
     ) throws IgniteCheckedException {
         try {
             if (log.isDebugEnabled())
@@ -610,7 +624,7 @@ public class GridDhtPartitionSupplier {
                 log.debug("Failed to send supply message (demander left): [" + supplyRoutineInfo(topicId, demander.id(), demandMsg) + "]");
 
             synchronized (scMap) {
-                clearContext(scMap.remove(contextId), log);
+                clearContext(scMap.remove(ctxId), log);
             }
 
             return false;
@@ -634,23 +648,23 @@ public class GridDhtPartitionSupplier {
     /**
      * Saves supply context with given parameters to {@code scMap}.
      *
-     * @param contextId Supply context id.
+     * @param ctxId Supply context id.
      * @param entryIt Entries rebalance iterator.
      * @param remainingParts Set of partitions that weren't sent yet.
      * @param rebalanceId Rebalance id.
      * @param initUpdateCntrs Collection of update counters that corresponds to the beginning of rebalance.
      */
     private void saveSupplyContext(
-        T3<UUID, Integer, AffinityTopologyVersion> contextId,
+        T3<UUID, Integer, AffinityTopologyVersion> ctxId,
         IgniteRebalanceIterator entryIt,
         Set<Integer> remainingParts,
         long rebalanceId,
         Map<Integer, Long> initUpdateCntrs
     ) {
         synchronized (scMap) {
-            assert scMap.get(contextId) == null;
+            assert scMap.get(ctxId) == null;
 
-            scMap.put(contextId, new SupplyContext(entryIt, remainingParts, rebalanceId, initUpdateCntrs));
+            scMap.put(ctxId, new SupplyContext(entryIt, remainingParts, rebalanceId, initUpdateCntrs));
         }
     }
 
