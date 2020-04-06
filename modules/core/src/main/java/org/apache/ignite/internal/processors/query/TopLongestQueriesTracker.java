@@ -77,7 +77,8 @@ public class TopLongestQueriesTracker {
      * @param windowSize Window size.
      */
     public void windowSize(long windowSize) {
-        task.cancel(false);
+        if (task != null)
+            task.cancel(false);
 
         long delay = Math.min(windowSize + lastSnapshotTime - currTimeSupplier.get(), 0);
 
