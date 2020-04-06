@@ -109,6 +109,9 @@ public class RunningQueryManager {
      */
     private final AtomicLongMetric oomQrsCnt;
 
+    /** */
+    private final TopLongestQueriesTracker topLongestQueriesTracker;
+
     /**
      * Constructor.
      *
@@ -120,6 +123,9 @@ public class RunningQueryManager {
         histSz = ctx.config().getSqlQueryHistorySize();
 
         qryHistTracker = new QueryHistoryTracker(histSz);
+
+        topLongestQueriesTracker = new TopLongestQueriesTracker(System::currentTimeMillis, 0, 10);
+        topLongestQueriesTracker.windowSize(15 * 1000);
 
         MetricRegistry userMetrics = ctx.metric().registry(SQL_USER_QUERIES_REG_NAME);
 
@@ -211,6 +217,8 @@ public class RunningQueryManager {
             qry.runningFuture().onDone();
 
             qryHistTracker.collectMetrics(qry, failed);
+
+            topLongestQueriesTracker.collect(qry);
 
             if (!failed)
                 successQrsCnt.increment();
