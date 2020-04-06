@@ -171,7 +171,7 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
      */
     private GridRunningQueryInfo createRunningQryInfo(String qry, long startTime) {
         return new GridRunningQueryInfo(
-            0L, UUID.randomUUID(), qry, GridCacheQueryType.SQL, qry, startTime, null, false, null
+            0L, UUID.randomUUID(), qry, GridCacheQueryType.SQL, qry, startTime, null, false, null, "test"
         );
     }
 
