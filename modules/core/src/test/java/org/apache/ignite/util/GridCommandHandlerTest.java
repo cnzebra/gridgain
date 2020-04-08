@@ -1245,7 +1245,7 @@ public class GridCommandHandlerTest extends GridCommandHandlerClusterPerMethodAb
      */
     @Test
     public void testIdleVerifyCheckCrcFailsOnNotIdleCluster() throws Exception {
-        checkpointFreq = 100L;
+        checkpointFreq = 1000L;
 
         IgniteEx node = startGrids(2);
 
@@ -1263,7 +1263,7 @@ public class GridCommandHandlerTest extends GridCommandHandlerClusterPerMethodAb
             ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
             while (!stopFlag.get()) {
-                cache.put(rnd.nextInt(), rnd.nextInt());
+                cache.put(rnd.nextInt(1000), rnd.nextInt(1000));
 
                 if (Thread.interrupted())
                     break;
@@ -1280,6 +1280,8 @@ public class GridCommandHandlerTest extends GridCommandHandlerClusterPerMethodAb
             assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify", "--check-crc"));
         }
         finally {
+            doSleep(checkpointFreq);
+
             stopFlag.set(true);
 
             loadThread.join();
