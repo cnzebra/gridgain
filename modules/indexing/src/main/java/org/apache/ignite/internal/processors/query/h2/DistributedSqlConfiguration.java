@@ -77,7 +77,11 @@ public class DistributedSqlConfiguration {
         isp.registerDistributedConfigurationListener(
             new DistributedConfigurationLifecycleListener() {
                 @Override public void onReadyToRegister(DistributedPropertyDispatcher dispatcher) {
-                    disabledSqlFuncs.addListener(makeUpdateListener(PROPERTY_UPDATE_MESSAGE, log));
+                    for (SimpleDistributedProperty<?> prop : Arrays.asList(
+                        disabledSqlFuncs, topLongestQryListSize, topLongestQryWindowSize,
+                        topLongestQryMinDuration
+                    )) {
+                        prop.addListener(makeUpdateListener(PROPERTY_UPDATE_MESSAGE, log));
 
                     timeZone.addListener((name, oldTz, newTz) -> {
                         if (!Objects.equals(oldTz, newTz))
@@ -132,9 +136,7 @@ public class DistributedSqlConfiguration {
      * @return Disabled SQL functions.
      */
     public Set<String> disabledFunctions() {
-        Set<String> ret = disabledSqlFuncs.get();
-
-        return ret != null ? ret : DFLT_DISABLED_FUNCS;
+        return disabledSqlFuncs.getOrDefault(DFLT_DISABLED_FUNCS);
     }
 
     /**

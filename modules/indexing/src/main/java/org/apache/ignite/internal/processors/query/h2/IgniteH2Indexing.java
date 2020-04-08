@@ -114,6 +114,7 @@ import org.apache.ignite.internal.processors.query.QueryUtils;
 import org.apache.ignite.internal.processors.query.RunningQueryManager;
 import org.apache.ignite.internal.processors.query.SqlClientContext;
 import org.apache.ignite.internal.processors.query.TableInformation;
+import org.apache.ignite.internal.processors.query.TopLongestQueriesTracker;
 import org.apache.ignite.internal.processors.query.UpdateSourceIterator;
 import org.apache.ignite.internal.processors.query.h2.affinity.H2PartitionResolver;
 import org.apache.ignite.internal.processors.query.h2.affinity.PartitionExtractor;
@@ -2169,8 +2170,22 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         nodeId = ctx.localNodeId();
         marshaller = ctx.config().getMarshaller();
 
+        distrCfg = new DistributedSqlConfiguration(ctx.internalSubscriptionProcessor(), log);
+
         memoryMgr = new QueryMemoryManager(ctx);
-        runningQryMgr = new RunningQueryManager(ctx);
+
+        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(
+            System::currentTimeMillis,
+            distrCfg.topLongestQueryMinDuration(),
+            distrCfg.topLongestQueryListSize(),
+            distrCfg.topLongestQueryWindowSize()
+        );
+
+        distrCfg.listenTopLongestQryListSize(tracker::longestQueriesListSize);
+        distrCfg.listenTopLongestQryMinDuration(tracker::minDuration);
+        distrCfg.listenTopLongestQryWindowSize(tracker::windowSize);
+
+        runningQryMgr = new RunningQueryManager(ctx, tracker);
 
         mapQryExec = new GridMapQueryExecutor();
         rdcQryExec = new GridReduceQueryExecutor();
@@ -2204,8 +2219,6 @@ public class IgniteH2Indexing implements GridQueryIndexing {
         connMgr.setH2Serializer(h2Serializer);
 
         registerAggregateFunctions();
-
-        distrCfg = new DistributedSqlConfiguration(ctx.internalSubscriptionProcessor(), log);
 
         funcMgr = new FunctionsManager(this, distrCfg);
     }

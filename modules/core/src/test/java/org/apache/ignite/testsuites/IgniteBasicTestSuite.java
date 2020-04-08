@@ -104,6 +104,7 @@ import org.apache.ignite.internal.processors.metastorage.persistence.InMemoryCac
 import org.apache.ignite.internal.processors.odbc.OdbcConfigurationValidationSelfTest;
 import org.apache.ignite.internal.processors.odbc.OdbcEscapeSequenceSelfTest;
 import org.apache.ignite.internal.processors.odbc.SqlListenerUtilsTest;
+import org.apache.ignite.internal.processors.query.TopLongestQueriesTrackerSelfTest;
 import org.apache.ignite.internal.product.FeaturesIsNotAvailableTest;
 import org.apache.ignite.internal.product.GridProductVersionSelfTest;
 import org.apache.ignite.internal.util.GridCleanerTest;
@@ -208,6 +209,8 @@ import org.junit.runners.Suite;
     OdbcConfigurationValidationSelfTest.class,
     OdbcEscapeSequenceSelfTest.class,
     SqlListenerUtilsTest.class,
+
+    TopLongestQueriesTrackerSelfTest.class,
 
     DynamicProxySerializationMultiJvmSelfTest.class,
 

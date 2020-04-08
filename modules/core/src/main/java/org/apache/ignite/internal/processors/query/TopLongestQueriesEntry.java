@@ -18,13 +18,32 @@ package org.apache.ignite.internal.processors.query;
 
 import org.apache.ignite.internal.util.typedef.internal.S;
 
+/**
+ * Entry of the top longests queries chart.
+ */
 public class TopLongestQueriesEntry {
+    /** */
     private final String schema;
+
+    /** */
     private final String qry;
+
+    /** */
     private final boolean loc;
+
+    /** */
     private final long startTime;
+
+    /** */
     private final long duration;
 
+    /**
+     * @param schema Schema.
+     * @param qry Query.
+     * @param loc Local.
+     * @param startTime Start time.
+     * @param duration Duration.
+     */
     public TopLongestQueriesEntry(String schema, String qry, boolean loc, long startTime, long duration) {
         this.schema = schema;
         this.qry = qry;
@@ -33,22 +52,27 @@ public class TopLongestQueriesEntry {
         this.duration = duration;
     }
 
+    /** */
     public String schema() {
         return schema;
     }
 
+    /** */
     public String query() {
         return qry;
     }
 
+    /** */
     public boolean local() {
         return loc;
     }
 
+    /** */
     public long startTime() {
         return startTime;
     }
 
+    /** */
     public long duration() {
         return duration;
     }

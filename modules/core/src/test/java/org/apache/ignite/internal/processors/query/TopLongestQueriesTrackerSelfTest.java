@@ -35,6 +35,7 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
     /** */
     private final AtomicLong currTime = new AtomicLong();
 
+    /** */
     @Before
     public void setUp() {
         currTime.set(0);
@@ -46,7 +47,7 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTrackerIgnoresShortQueries() {
-        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(currTime::get, 10, 3);
+        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(currTime::get, 10, 3, 0);
 
         for (long i = 0; i < 7; i++) {
             currTime.set(5L + i);
@@ -67,7 +68,7 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTrackerCollectsDecreasedQueriesUntilLimitIsReached() {
-        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(currTime::get, 0, 3);
+        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(currTime::get, 0, 3, 0);
 
         for (long i = 6; i >= 0; i--) {
             currTime.set(i);
@@ -88,7 +89,7 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
      */
     @Test
     public void testTrackerProperHandlesDublicatedQueries() {
-        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(currTime::get, 0, 10);
+        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(currTime::get, 0, 10, 0);
 
         currTime.set(10);
 
@@ -140,7 +141,7 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
 
         List<Thread> threads = new ArrayList<>(threadCnt);
 
-        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(() -> (long)allFinishedAt, 0, threadCnt);
+        TopLongestQueriesTracker tracker = new TopLongestQueriesTracker(() -> (long)allFinishedAt, 0, threadCnt, 0);
 
         for (int i = 0; i < threadCnt; i++) {
             final int threadNo = i;
@@ -189,12 +190,12 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
      * Compares two entries. Throws asserion eeror in case enttries is not
      * the same.
      *
-     * @param expected Expected.
+     * @param exp Expected.
      * @param actual Actual.
      */
-    private void compareEntry(TopLongestQueriesEntry expected, TopLongestQueriesEntry actual) {
-        if (!compareEntry0(expected, actual))
-            fail("Exp: " + expected + ", act: " + actual);
+    private void compareEntry(TopLongestQueriesEntry exp, TopLongestQueriesEntry actual) {
+        if (!compareEntry0(exp, actual))
+            fail("Exp: " + exp + ", act: " + actual);
     }
 
     /**
@@ -230,27 +231,4 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
             && exp.local() == actual.local()
             && exp.duration() == actual.duration();
     }
-
-    /*
-    Integration tests DRAFT:
-
-    1) verify tracker reflects to the minDuration changes
-        - run several queries
-        - verify that char contains queries with duration >= default value
-        - change minDuration
-        - verify result
-
-    2) verify tracker reflects to the window size changes
-        - run several queries
-        - verify that char contains queries with end time <= window size
-        - change windowSize
-        - verify result
-
-    3) verify tracker could change window size before timeout
-        - set pretty big window size
-        - run several queries
-        - lower window size
-        - verify that char not empty
-     */
-
 }

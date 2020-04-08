@@ -117,15 +117,14 @@ public class RunningQueryManager {
      *
      * @param ctx Context.
      */
-    public RunningQueryManager(GridKernalContext ctx) {
+    public RunningQueryManager(GridKernalContext ctx, TopLongestQueriesTracker topLongestQueriesTracker) {
+        this.topLongestQueriesTracker = topLongestQueriesTracker;
+
         log = ctx.log(RunningQueryManager.class);
         locNodeId = ctx.localNodeId();
         histSz = ctx.config().getSqlQueryHistorySize();
 
         qryHistTracker = new QueryHistoryTracker(histSz);
-
-        topLongestQueriesTracker = new TopLongestQueriesTracker(System::currentTimeMillis, 0, 10);
-        topLongestQueriesTracker.windowSize(15 * 1000);
 
         MetricRegistry userMetrics = ctx.metric().registry(SQL_USER_QUERIES_REG_NAME);
 
@@ -218,7 +217,8 @@ public class RunningQueryManager {
 
             qryHistTracker.collectMetrics(qry, failed);
 
-            topLongestQueriesTracker.collect(qry);
+            if (topLongestQueriesTracker != null)
+                topLongestQueriesTracker.collect(qry);
 
             if (!failed)
                 successQrsCnt.increment();
@@ -234,6 +234,10 @@ public class RunningQueryManager {
                     oomQrsCnt.increment();
             }
         }
+    }
+
+    public TopLongestQueriesTracker topLongestQueriesTracker() {
+        return topLongestQueriesTracker;
     }
 
     /**
@@ -297,6 +301,15 @@ public class RunningQueryManager {
      * Cancel all executing queries and deregistering all of them.
      */
     public void stop() {
+        if (topLongestQueriesTracker != null) {
+            try {
+                topLongestQueriesTracker.stop();
+            }
+            catch (Exception ex) {
+                U.error(log, "Unable to stop topLongestQryTracker", ex);
+            }
+        }
+
         Iterator<GridRunningQueryInfo> iter = runs.values().iterator();
 
         while (iter.hasNext()) {

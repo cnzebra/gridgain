@@ -29,25 +29,37 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.util.typedef.internal.A;
 
 /** */
 public class TopLongestQueriesTracker {
     /** */
-    private volatile long lastSnapshotTime;
-
-    /** */
-    private volatile int longestQueriesListSize;
-
-    /** */
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    /** */
+    /** Executer used to collect snapshots on schedule. */
     private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+
+    /**
+     * Queue of the queries sorted by ascending duration. Used to drop
+     * shortest queries when max size is reached.
+     */
+    private final PriorityBlockingQueue<TopLongestQueriesEntry> queriesQueue = new PriorityBlockingQueue<>(
+        16, Comparator.comparingLong(TopLongestQueriesEntry::duration)
+    );
+
+    /** Mapping qury to its duration. Used to handle dublicates. */
+    private final ConcurrentMap<EntryKey, TopLongestQueriesEntry> qryToDurationMap = new ConcurrentHashMap<>();
 
     /** */
     private final Supplier<Long> currTimeSupplier;
 
-    /** Min duration. */
+    /** Time when last snapshot was collected. */
+    private volatile long lastSnapshotTime;
+
+    /** Maximum size of the top query chart. */
+    private volatile int longestQueriesListSize;
+
+    /** Minimal duration that tracker should collect. */
     private volatile long minDuration;
 
     /** */
@@ -56,39 +68,49 @@ public class TopLongestQueriesTracker {
     /** */
     private volatile List<TopLongestQueriesEntry> lastSnapshot = Collections.emptyList();
 
-    /** Cur. */
-    private final PriorityBlockingQueue<TopLongestQueriesEntry> cur = new PriorityBlockingQueue<>(
-        16, Comparator.comparingLong(TopLongestQueriesEntry::duration)
-    );
-
-    /** Map. */
-    private final ConcurrentMap<EntryKey, TopLongestQueriesEntry> qryToDurationMap = new ConcurrentHashMap<>();
-
     /**
      * @param currTimeSupplier Current time supplier.
      */
-    public TopLongestQueriesTracker(Supplier<Long> currTimeSupplier, long minDuration, int longestQueriesListSize) {
+    public TopLongestQueriesTracker(Supplier<Long> currTimeSupplier, long minDuration, int longestQueriesListSize, long windowSize) {
+        A.ensure(currTimeSupplier != null, "currTimeSupplier != null");
+
         this.currTimeSupplier = currTimeSupplier;
-        this.minDuration = minDuration;
-        this.longestQueriesListSize = longestQueriesListSize;
+
+        lastSnapshotTime = currTimeSupplier.get();
+
+        longestQueriesListSize(longestQueriesListSize);
+        minDuration(minDuration);
+        windowSize(windowSize);
     }
 
     /**
      * @param windowSize Window size.
      */
-    public void windowSize(long windowSize) {
+    public synchronized void windowSize(long windowSize) {
         if (task != null)
             task.cancel(false);
 
-        long delay = Math.min(windowSize + lastSnapshotTime - currTimeSupplier.get(), 0);
+        if (windowSize <= 0)
+            return;
+
+        long delay = Math.max(windowSize + lastSnapshotTime - currTimeSupplier.get(), 0);
 
         task = executor.scheduleAtFixedRate(this::closeSnapshot, delay, windowSize, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Stops internal executor.
+     */
+    public void stop() {
+        executor.shutdownNow();
     }
 
     /**
      * @param minDuration Min duration.
      */
     public void minDuration(long minDuration) {
+        A.ensure(minDuration >= 0, "minDuration >= 0");
+
         this.minDuration = minDuration;
     }
 
@@ -102,7 +124,7 @@ public class TopLongestQueriesTracker {
             return;
 
         TopLongestQueriesEntry fastest;
-        if (cur.size() >= longestQueriesListSize && (fastest = cur.peek()) != null && fastest.duration() > duration)
+        if (queriesQueue.size() >= longestQueriesListSize && (fastest = queriesQueue.peek()) != null && fastest.duration() > duration)
             return;
 
         lock.readLock().lock();
@@ -121,13 +143,13 @@ public class TopLongestQueriesTracker {
                 oldEntry == null ? qryToDurationMap.putIfAbsent(newEntryKey, newEntry) != null : !qryToDurationMap.replace(newEntryKey, oldEntry, newEntry)
             );
 
-            cur.add(newEntry);
+            queriesQueue.add(newEntry);
 
             if (oldEntry != null)
-                cur.remove(oldEntry);
+                queriesQueue.remove(oldEntry);
 
-            else if (cur.size() > longestQueriesListSize) {
-                fastest = cur.poll();
+            else if (queriesQueue.size() > longestQueriesListSize) {
+                fastest = queriesQueue.poll();
 
                 qryToDurationMap.remove(extractKey(fastest), fastest);
             }
@@ -146,7 +168,7 @@ public class TopLongestQueriesTracker {
         lock.writeLock().lock();
 
         try {
-            cur.drainTo(list);
+            queriesQueue.drainTo(list);
 
             qryToDurationMap.clear();
         }
@@ -161,7 +183,9 @@ public class TopLongestQueriesTracker {
         lastSnapshot = list;
     }
 
-    /** */
+    /**
+     * @return Latests snapshot of top longest queries.
+     */
     public List<TopLongestQueriesEntry> topLongestQueries() {
         return Collections.unmodifiableList(lastSnapshot);
     }
@@ -170,6 +194,8 @@ public class TopLongestQueriesTracker {
      * @param longestQueriesListSize Longest queries list size.
      */
     public void longestQueriesListSize(int longestQueriesListSize) {
+        A.ensure(longestQueriesListSize > 0, "longestQueriesListSize > 0");
+
         this.longestQueriesListSize = longestQueriesListSize;
     }
 
@@ -191,7 +217,7 @@ public class TopLongestQueriesTracker {
     }
 
     /**
-     * Part of {@link TopLongestQueriesEntry} that allows to distinguish between requests.
+     * Part of {@link TopLongestQueriesEntry} that allows to distinguish between queries.
      */
     private static class EntryKey {
         /** */
