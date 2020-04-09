@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 GridGain Systems, Inc. and Contributors.
+ * Copyright 2019 GridGain Systems, Inc. and Contributors.
  *
  * Licensed under the GridGain Community Edition License (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ public class TopLongestQueriesTrackerSelfTest extends GridCommonAbstractTest {
     }
 
     /**
-     * Verify that same queries is not dublicated and stored only the longest one.
+     * Verify that tracker can be used concurrently.
      */
     @Test
     public void testTrackerHandlesConcurrentInvocation() throws InterruptedException {

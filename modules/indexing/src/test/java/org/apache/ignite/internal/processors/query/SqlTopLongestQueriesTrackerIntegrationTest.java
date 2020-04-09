@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 GridGain Systems, Inc. and Contributors.
+ * Copyright 2019 GridGain Systems, Inc. and Contributors.
  *
  * Licensed under the GridGain Community Edition License (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,11 +58,13 @@ public class SqlTopLongestQueriesTrackerIntegrationTest extends GridCommonAbstra
     /** */
     @Before
     public void init() {
-        tracker = ((IgniteH2Indexing)grid(0).context().query().getIndexing())
-            .runningQueryManager().topLongestQueriesTracker();
+        IgniteH2Indexing indexing = (IgniteH2Indexing)grid(0).context().query().getIndexing();
 
-        distCfg = ((IgniteH2Indexing)grid(0).context().query().getIndexing())
-            .distributedConfiguration();
+        tracker = GridTestUtils.getFieldValue(
+            indexing.runningQueryManager(), "topLongestQueriesTracker"
+        );
+
+        distCfg = indexing.distributedConfiguration();
 
         tracker.closeSnapshot();
         tracker.closeSnapshot();

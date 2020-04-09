@@ -116,6 +116,7 @@ public class RunningQueryManager {
      * Constructor.
      *
      * @param ctx Context.
+     * @param topLongestQueriesTracker tracker of longest queries.
      */
     public RunningQueryManager(GridKernalContext ctx, TopLongestQueriesTracker topLongestQueriesTracker) {
         this.topLongestQueriesTracker = topLongestQueriesTracker;
@@ -236,6 +237,9 @@ public class RunningQueryManager {
         }
     }
 
+    /**
+     * @return tracker of longest queries.
+     */
     public TopLongestQueriesTracker topLongestQueriesTracker() {
         return topLongestQueriesTracker;
     }

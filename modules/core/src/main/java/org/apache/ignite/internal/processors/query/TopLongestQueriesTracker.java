@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 GridGain Systems, Inc. and Contributors.
+ * Copyright 2019 GridGain Systems, Inc. and Contributors.
  *
  * Licensed under the GridGain Community Edition License (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ public class TopLongestQueriesTracker {
         16, Comparator.comparingLong(TopLongestQueriesEntry::duration)
     );
 
-    /** Mapping qury to its duration. Used to handle dublicates. */
+    /** Mapping query to its duration. Used to handle dublicates. */
     private final ConcurrentMap<EntryKey, TopLongestQueriesEntry> qryToDurationMap = new ConcurrentHashMap<>();
 
     /** */
@@ -124,7 +124,8 @@ public class TopLongestQueriesTracker {
             return;
 
         TopLongestQueriesEntry fastest;
-        if (queriesQueue.size() >= longestQueriesListSize && (fastest = queriesQueue.peek()) != null && fastest.duration() > duration)
+        if (queriesQueue.size() >= longestQueriesListSize
+            && (fastest = queriesQueue.peek()) != null && fastest.duration() > duration)
             return;
 
         lock.readLock().lock();
@@ -140,7 +141,9 @@ public class TopLongestQueriesTracker {
                     return;
 
             } while (
-                oldEntry == null ? qryToDurationMap.putIfAbsent(newEntryKey, newEntry) != null : !qryToDurationMap.replace(newEntryKey, oldEntry, newEntry)
+                oldEntry == null
+                    ? qryToDurationMap.putIfAbsent(newEntryKey, newEntry) != null
+                    : !qryToDurationMap.replace(newEntryKey, oldEntry, newEntry)
             );
 
             queriesQueue.add(newEntry);
