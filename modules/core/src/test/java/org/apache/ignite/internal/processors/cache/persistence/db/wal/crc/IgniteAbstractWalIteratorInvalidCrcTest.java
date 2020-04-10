@@ -136,7 +136,7 @@ public abstract class IgniteAbstractWalIteratorInvalidCrcTest extends GridCommon
      */
     @Test
     public void testArchiveCorruptedPtr() throws Exception {
-        doTest((archiveDescs, descs) -> archiveDescs.get(random.nextInt(archiveDescs.size())), false, true);
+        doTest((archiveDescs, descs) -> archiveDescs.get(random.nextInt(archiveDescs.size())), false, false);
     }
 
     /**
@@ -146,7 +146,7 @@ public abstract class IgniteAbstractWalIteratorInvalidCrcTest extends GridCommon
      */
     @Test
     public void testNotTailCorruptedPtr() throws Exception {
-        doTest((archiveDescs, descs) -> descs.get(random.nextInt(descs.size() - 1)), true, true);
+        doTest((archiveDescs, descs) -> descs.get(random.nextInt(descs.size() - 1)), true, false);
     }
 
 

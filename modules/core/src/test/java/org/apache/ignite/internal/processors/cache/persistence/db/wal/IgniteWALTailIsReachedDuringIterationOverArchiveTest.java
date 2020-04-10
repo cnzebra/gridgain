@@ -169,8 +169,6 @@ public class IgniteWALTailIsReachedDuringIterationOverArchiveTest extends GridCo
 
         FileWALPointer lastReadPtr = null;
 
-        boolean exception = false;
-
         try (WALIterator it0 = it) {
             while (it0.hasNextX()) {
                 IgniteBiTuple<WALPointer, WALRecord> tup = it0.nextX();
@@ -178,17 +176,8 @@ public class IgniteWALTailIsReachedDuringIterationOverArchiveTest extends GridCo
                 lastReadPtr = (FileWALPointer)tup.get1();
             }
         }
-        catch (IgniteCheckedException e) {
-            if (e.getMessage().contains("WAL tail reached in archive directory, WAL segment file is corrupted")
-                || e.getMessage().contains("WAL tail reached not in the last available segment"))
-                exception = true;
-        }
 
         Assert.assertNotNull(lastReadPtr);
-
-        if (!exception) {
-            fail("Last read ptr=" + lastReadPtr + ", corruptedPtr=" + corruptedPtr);
-        }
     }
 
     /**

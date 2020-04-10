@@ -125,7 +125,7 @@ public class IgniteWalIteratorExceptionDuringReadTest extends GridCommonAbstract
                 }
             }
 
-            assertTrue(failed);
+            assertFalse(failed);
         }
     }
 
