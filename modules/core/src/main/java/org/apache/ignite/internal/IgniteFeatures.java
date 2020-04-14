@@ -143,7 +143,10 @@ public enum IgniteFeatures {
     PARTITION_RECONCILIATION(34),
 
     /** Inverse connection: sending a request over discovery to establish a communication connection. */
-    INVERSE_TCP_CONNECTION(35);
+    INVERSE_TCP_CONNECTION(35),
+
+    /** Dump tx collisions possibility. */
+    TX_COLLISIONS_DUMP(36);
 
     /**
      * Unique feature identifier.
