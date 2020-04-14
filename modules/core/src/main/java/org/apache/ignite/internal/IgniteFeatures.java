@@ -146,7 +146,7 @@ public enum IgniteFeatures {
     INVERSE_TCP_CONNECTION(35),
 
     /** Dump tx collisions possibility. */
-    TX_COLLISIONS_DUMP(36);
+    DISTRIBUTED_TX_COLLISIONS_DUMP(36);
 
     /**
      * Unique feature identifier.
