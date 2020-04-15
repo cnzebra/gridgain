@@ -543,6 +543,17 @@ public class GridCommandHandlerTest extends GridCommandHandlerClusterPerMethodAb
         assertEquals(2, ignite.cluster().currentBaselineTopology().size());
     }
 
+    @Test
+    public void testAvailability() throws Exception {
+        IgniteEx ignite = startGrids(5);
+
+        assertFalse(ignite.cluster().active());
+
+        ignite.cluster().active(true);
+
+        assertEquals(EXIT_CODE_OK, execute("--diagnostic", "connectivity"));
+    }
+
     /**
      * Test baseline remove works via control.sh
      *
