@@ -70,7 +70,6 @@ import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import org.apache.ignite.DataRegionMetricsProvider;
 import org.apache.ignite.DataStorageMetrics;
 import org.apache.ignite.IgniteCheckedException;
@@ -1811,7 +1810,6 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
         reservedForExchange = new HashMap<>();
 
-        //by threshold
         Map</*grpId*/Integer, Set</*partId*/Integer>> applicableGroupsAndPartitions = partitionsApplicableForWalRebalance();
 
         Map</*grpId*/Integer,  T2</*reason*/String, Map</*partId*/Integer, CheckpointEntry>>> earliestValidCheckpoints;
@@ -1857,28 +1855,52 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
             }
         }
 
-        if (log.isInfoEnabled()) {
-            log.info("Following groups were reserved for potential history rebalance [" +
-                earliestValidCheckpoints.entrySet().stream().map(entry -> {
-                        CheckpointEntry minCpEntry = null;
+        if (log.isInfoEnabled() && !F.isEmpty(earliestValidCheckpoints))
+            printReservationToLog(earliestValidCheckpoints);
 
-                        if (entry.getValue().get2() != null) {
-                            minCpEntry = entry.getValue().get2().values().stream().min((cp1, cp2) ->
-                                Long.compare(cp1.timestamp(), cp2.timestamp())).get();
-                        }
+        return grpPartsWithCnts;
+    }
+
+    /**
+     * Prints detail information about caches which were not reserved
+     * and reservation depth for the caches which have WAL history enough.
+     *
+     * @param earliestValidCheckpoints Map contains information about caches' reservation.
+     */
+    private void printReservationToLog(
+        Map<Integer, T2<String, Map<Integer, CheckpointEntry>>> earliestValidCheckpoints) {
+        Map</*grpId*/Integer, T2</*reason*/String, Map</*partId*/Integer, CheckpointEntry>>> notReservedCaches =
+            earliestValidCheckpoints.entrySet().stream()
+                .filter(entry -> entry.getValue().get2() == null)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        if (!F.isEmpty(notReservedCaches)) {
+            log.info("Following caches were not reserved [" +
+                notReservedCaches.entrySet().stream()
+                    .map(entry -> "[grpId=" + entry.getKey() +
+                        ", grpName=" + cctx.cache().cacheGroup(entry.getKey()).cacheOrGroupName() +
+                        ", reason=" + entry.getValue().get1() + ']')
+                    .collect(Collectors.joining(", ")) + ']');
+        }
+
+        Map</*grpId*/Integer, T2</*reason*/String, Map</*partId*/Integer, CheckpointEntry>>> reservedCaches =
+            earliestValidCheckpoints.entrySet().stream()
+                .filter(entry -> entry.getValue().get2() != null)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        if (!F.isEmpty(reservedCaches)) {
+            log.info("Caches were reserved in WAL not deeper than last checkpoint by specified reason [" +
+                reservedCaches.entrySet().stream()
+                    .map(entry -> {
+                        CheckpointEntry minCpEntry = entry.getValue().get2().values().stream()
+                            .min((cp1, cp2) -> Long.compare(cp1.timestamp(), cp2.timestamp())).get();
 
                         return "[grpId=" + entry.getKey() +
                             ", grpName=" + cctx.cache().cacheGroup(entry.getKey()).cacheOrGroupName() +
-                            (minCpEntry != null ?
-                                ", cp=(" + minCpEntry.checkpointId() +
-                                    ", " + U.format(minCpEntry.timestamp()) + ')'
-                                : "") +
+                            ", cp=(" + minCpEntry.checkpointId() + ", " + U.format(minCpEntry.timestamp()) + ')' +
                             ", reason=" + entry.getValue().get1() + ']';
-                    }
-                ).collect(Collectors.joining(", ")) + ']');
+                    }).collect(Collectors.joining(", ")) + ']');
         }
-
-        return grpPartsWithCnts;
     }
 
     /**

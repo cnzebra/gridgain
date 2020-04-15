@@ -4058,27 +4058,24 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         }
 
         if (!F.isEmpty(supplayInfoMap)) {
-            String logMsg = "Historical rebalancing wasn't scheduled for some partitions:\n" +
-                "History wasn't reserved for: [" +
+            log.info("Partitions do not have WAL reservation for historical rebalance: [" +
                 supplayInfoMap.entrySet().stream().map(entry ->
                     "[grp=" + entry.getKey() + " part=[" + S.compact(entry.getValue().stream()
                         .filter(info -> !info.isHistoryReserved())
                         .map(info -> info.part()).collect(Collectors.toSet())) + "]]"
-                ).collect(Collectors.joining(", ")) + "]\n" +
-                "History was reserved, but minimum present counter is less than maximum reserved: [" +
-                supplayInfoMap.entrySet().stream().map(entry ->
-                    "[grp=" + entry.getKey() + ' ' +
-                        entry.getValue().stream().filter(SupplayPartitionInfo::isHistoryReserved).map(info ->
-                            "[part=" + info.part() +
-                                ", minCntr=" + info.minCntr() +
-                                ", minNodeId=" + info.minNodeId() +
-                                ", maxReserved=" + info.maxReserved() +
-                                ", maxReservedNodeId=" + info.maxReservedNodeId() + ']'
-                        ).collect(Collectors.joining(", ")) + ']'
-                ).collect(Collectors.joining(", ")) + ']';
+                ).collect(Collectors.joining(", ")) + ']');
 
-            if (log.isInfoEnabled())
-                log.info(logMsg);
+            log.info("WAL reservation does not enough for historical rebalance: [" +
+                    supplayInfoMap.entrySet().stream().map(entry ->
+                        "[grp=" + entry.getKey() + ' ' +
+                            entry.getValue().stream().filter(SupplayPartitionInfo::isHistoryReserved).map(info ->
+                                "[part=" + info.part() +
+                                    ", minCntr=" + info.minCntr() +
+                                    ", minNodeId=" + info.minNodeId() +
+                                    ", maxReserved=" + info.maxReserved() +
+                                    ", maxReservedNodeId=" + info.maxReservedNodeId() + ']'
+                            ).collect(Collectors.joining(", ")) + ']'
+                    ).collect(Collectors.joining(", ")) + ']');
         }
 
         timeBag.finishGlobalStage("Assign partitions states");

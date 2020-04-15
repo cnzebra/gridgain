@@ -50,11 +50,21 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_MAX_CHECKPOINT
  * This directory holds files for checkpoint start and end.
  */
 public class CheckpointHistory {
-    public static final String NOT_RESERVED_WAL_REASON = "If checkpoint WAL history can't be reserved";
-    public static final String WAL_SEG_CORRUPTED_REASON = "Segment corrupted";
-    public static final String NO_MORE_HISTORY_REASON = "No more history for reservation";
-    public static final String CHECKPOINT_NOT_APPLICABLE_REASON = "Checkpoint was marked as inapplicable for historical rebalancing";
-    public static final String FULL_HISTORY_REASON = "Reserved full history for group";
+    /** The message appears when no one checkpoint was not reserved for cache. */
+    private static final String NOT_RESERVED_WAL_REASON = "If checkpoint WAL history can't be reserved";
+
+    /** The message puts down to log when an exception happened during reading reserved WAL. */
+    private static final String WAL_SEG_CORRUPTED_REASON = "Segment corrupted";
+
+    /** Reason means no more history reserved for the cache. */
+    private static final String NO_MORE_HISTORY_REASON = "No more history for reservation";
+
+    /** Reason means a checkpoint in history reserved can not be applied for cache. */
+    private static final String CHECKPOINT_NOT_APPLICABLE_REASON = "Checkpoint was marked as inapplicable for historical rebalancing";
+
+    /** That means all history reserved for cache. */
+    private static final String FULL_HISTORY_REASON = "Reserved full history for group";
+
     /** Logger. */
     private final IgniteLogger log;
 
