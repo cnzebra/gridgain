@@ -1814,7 +1814,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         //by threshold
         Map</*grpId*/Integer, Set</*partId*/Integer>> applicableGroupsAndPartitions = partitionsApplicableForWalRebalance();
 
-        Map</*grpId*/Integer, Map</*partId*/Integer, CheckpointEntry>> earliestValidCheckpoints;
+        Map</*grpId*/Integer,  T2</*reason*/String, Map</*partId*/Integer, CheckpointEntry>>> earliestValidCheckpoints;
 
         checkpointReadLock();
 
@@ -1827,10 +1827,18 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
         Map</*grpId*/Integer, Map</*partId*/Integer, /*updCntr*/Long>> grpPartsWithCnts = new HashMap<>();
 
-        for (Map.Entry<Integer, Map<Integer, CheckpointEntry>> e : earliestValidCheckpoints.entrySet()) {
+        for (Map.Entry<Integer, T2</*reason*/String, Map</*partId*/Integer, CheckpointEntry>>> e : earliestValidCheckpoints.entrySet()) {
             int grpId = e.getKey();
 
-            for (Map.Entry<Integer, CheckpointEntry> e0 : e.getValue().entrySet()) {
+            if (e.getValue().get2() == null) {
+                if (log.isDebugEnabled())
+                    log.debug("This group does not have a history reservation [grpId=" +
+                        e.getKey() + ", " + "reason=" + e.getValue().get1() + ']');
+
+                continue;
+            }
+
+            for (Map.Entry<Integer, CheckpointEntry> e0 : e.getValue().get2().entrySet()) {
                 CheckpointEntry cpEntry = e0.getValue();
 
                 int partId = e0.getKey();
@@ -1850,11 +1858,24 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
         }
 
         if (log.isInfoEnabled()) {
-            log.info("Following partitions were reserved for potential history rebalance [" +
-                grpPartsWithCnts.entrySet().stream().map(entry ->
-                    "grpId=" + entry.getKey() +
-                    ", grpName=" + cctx.cache().cacheGroupDescriptor(entry.getKey()).groupName() +
-                    ", parts=" + S.compact(entry.getValue().keySet())).collect(Collectors.joining(", ")) + ']');
+            log.info("Following groups were reserved for potential history rebalance [" +
+                earliestValidCheckpoints.entrySet().stream().map(entry -> {
+                        CheckpointEntry minCpEntry = null;
+
+                        if (entry.getValue().get2() != null) {
+                            minCpEntry = entry.getValue().get2().values().stream().min((cp1, cp2) ->
+                                Long.compare(cp1.timestamp(), cp2.timestamp())).get();
+                        }
+
+                        return "[grpId=" + entry.getKey() +
+                            ", grpName=" + cctx.cache().cacheGroup(entry.getKey()).cacheOrGroupName() +
+                            (minCpEntry != null ?
+                                ", cp=(" + minCpEntry.checkpointId() +
+                                    ", " + U.format(minCpEntry.timestamp()) + ')'
+                                : "") +
+                            ", reason=" + entry.getValue().get1() + ']';
+                    }
+                ).collect(Collectors.joining(", ")) + ']');
         }
 
         return grpPartsWithCnts;
