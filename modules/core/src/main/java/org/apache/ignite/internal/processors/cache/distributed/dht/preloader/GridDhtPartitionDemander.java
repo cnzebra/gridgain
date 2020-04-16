@@ -483,39 +483,21 @@ public class GridDhtPartitionDemander {
             }
 
             if (log.isDebugEnabled())
-                log.debug("Received supply message [" + demandRoutineInfo(supplierNodeId, supplyMsg) + "]");
+                log.debug("Received supply message [" + demandRoutineInfo(supplierNodeId, supplyMsg) + ']');
 
+            // Check whether there were error during supplying process.
             if (nonNull(supplyMsg.classError()))
                 errMsg = "Supply message couldn't be unmarshalled: " + supplyMsg.classError();
-            else if (nonNull(supplyMsg.error()))
-                errMsg = "Supplier has failed with error: " + supplyMsg.error();
+            else if (nonNull(supplyMsg.error())) {
+                errMsg = "Will try to switch to full rebalance instead of historical one. " +
+                    "Supplier has failed with error: " + supplyMsg.error();
+            }
 
             if (nonNull(errMsg)) {
                 U.warn(log, "Rebalancing from node cancelled [" +
                     demandRoutineInfo(supplierNodeId, supplyMsg) + "]. " + errMsg);
 
-                rebalanceFut.cancel(/*supplierNodeId*/);
-//=======
-//                log.debug("Received supply message [" + demandRoutineInfo(nodeId, supplyMsg) + "]");
-//
-//            // Check whether there were error during supply message unmarshalling process.
-//            if (supplyMsg.classError() != null) {
-//                U.warn(log, "Rebalancing from node cancelled [" + demandRoutineInfo(nodeId, supplyMsg) +
-//                    "]. Supply message couldn't be unmarshalled: " + supplyMsg.classError());
-//
-//                fut.scheduleReassign(nodeId);
-//
-//                return;
-//            }
-//
-//            // Check whether there were error during supplying process.
-//            if (supplyMsg.error() != null) {
-//                U.warn(log, "Rebalancing from node cancelled [" + demandRoutineInfo(nodeId, supplyMsg) +
-//                    "]. Will try to switch to full rebalance instead of historical one. " +
-//                    "Supplier has failed with error: " + supplyMsg.error());
-//
-//                fut.scheduleReassign(nodeId);
-//>>>>>>> GG-26123 Added fallback to full rebalance if historical one has failed.
+                rebalanceFut.cancel(supplierNodeId);
 
                 return;
             }
@@ -629,7 +611,7 @@ public class GridDhtPartitionDemander {
 
                             if (log.isDebugEnabled())
                                 log.debug("Skipping rebalancing partition (state is not MOVING): " +
-                                    "[" + demandRoutineInfo(supplierNodeId, supplyMsg) + ", p=" + p + "]");
+                                    "[" + demandRoutineInfo(supplierNodeId, supplyMsg) + ", p=" + p + ']');
                         }
                     }
                     else {
@@ -637,7 +619,7 @@ public class GridDhtPartitionDemander {
 
                         if (log.isDebugEnabled())
                             log.debug("Skipping rebalancing partition (affinity changed): " +
-                                "[" + demandRoutineInfo(supplierNodeId, supplyMsg) + ", p=" + p + "]");
+                                "[" + demandRoutineInfo(supplierNodeId, supplyMsg) + ", p=" + p + ']');
                     }
                 }
 
@@ -676,11 +658,11 @@ public class GridDhtPartitionDemander {
                 else {
                     if (log.isDebugEnabled())
                         log.debug("Will not request next demand message [" +
-                            demandRoutineInfo(supplierNodeId, supplyMsg) + ", rebalanceFuture=" + rebalanceFut + "]");
+                            demandRoutineInfo(supplierNodeId, supplyMsg) + ", rebalanceFuture=" + rebalanceFut + ']');
                 }
             }
             catch (IgniteSpiException | IgniteCheckedException e) {
-                rebalanceFut.cancel(/*supplierNodeId*/);
+                rebalanceFut.cancel(supplierNodeId);
 
                 LT.error(log, e, "Error during rebalancing [" + demandRoutineInfo(supplierNodeId, supplyMsg) +
                     ", err=" + e + ']');
@@ -1537,6 +1519,25 @@ public class GridDhtPartitionDemander {
         }
 
         /**
+         * @param nodeId Node id.
+         */
+        private synchronized void cancel(UUID nodeId) {
+            if (isDone())
+                return;
+
+            U.log(log, ("Cancelled rebalancing [grp=" + grp.cacheOrGroupName() +
+                ", supplier=" + nodeId + ", topVer=" + topologyVersion() + ']'));
+
+            cleanupRemoteContexts(nodeId);
+
+            remaining.remove(nodeId);
+
+            onDone(false); // Finishing rebalance future as non completed.
+
+            checkIsDone(); // But will finish syncFuture only when other nodes are preloaded or rebalancing cancelled.
+        }
+
+        /**
          * Cancels rebalancing from the given supplier node and will trigger force reassignment,
          * excluding the supplier from historical rebalancing, when this future is done,
          * along with that all partitions related to the supplier are marked as missed.
@@ -1576,6 +1577,17 @@ public class GridDhtPartitionDemander {
         private synchronized void partitionMissed(UUID nodeId, int p) {
             if (isDone())
                 return;
+
+            IgniteDhtDemandedPartitionsMap parts = remaining.get(nodeId);
+
+            assert parts != null : "Remaining not found [grp=" + grp.cacheOrGroupName() + ", fromNode=" + nodeId +
+                ", part=" + p + "]";
+
+            if (parts.historicalMap().contains(p)) {
+                // The partition p cannot be wal rebalanced,
+                // let's exclude the given nodeId and give a try to full rebalance.
+                exclusionsFromWalRebalance.add(nodeId);
+            }
 
             missed.computeIfAbsent(nodeId, k -> new HashSet<>());
 
@@ -1620,7 +1632,7 @@ public class GridDhtPartitionDemander {
             if (updateState && grp.localWalEnabled())
                 grp.topology().own(grp.topology().localPartition(p));
 
-            if (isDone() || exclusionsFromWalRebalance.contains(nodeId))
+            if (isDone())
                 return;
 
             if (grp.eventRecordable(EVT_CACHE_REBALANCE_PART_LOADED))

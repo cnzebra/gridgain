@@ -17,10 +17,12 @@
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.MvccVersionAware;
 import org.apache.ignite.internal.processors.cache.mvcc.txlog.TxState;
 import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
+import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T3;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -227,7 +230,16 @@ public class GridDhtPartitionSupplier {
 
         SupplyContext sctx = null;
 
+        Set<Integer> remainingParts = null;
+
         Map<Integer, Long> initUpdateCntrs;
+
+        GridDhtPartitionSupplyMessage supplyMsg = new GridDhtPartitionSupplyMessage(
+                demandMsg.rebalanceId(),
+                grp.groupId(),
+                demandMsg.topologyVersion(),
+                grp.deploymentEnabled()
+        );
 
         try {
             synchronized (scMap) {
@@ -277,15 +289,6 @@ public class GridDhtPartitionSupplier {
             }
             else
                 maxBatchesCnt = 1;
-
-            GridDhtPartitionSupplyMessage supplyMsg = new GridDhtPartitionSupplyMessage(
-                    demandMsg.rebalanceId(),
-                    grp.groupId(),
-                    demandMsg.topologyVersion(),
-                    grp.deploymentEnabled()
-            );
-
-            Set<Integer> remainingParts;
 
             if (sctx == null || sctx.iterator == null) {
                 remainingParts = new HashSet<>(demandMsg.partitions().fullSet());
@@ -522,17 +525,29 @@ public class GridDhtPartitionSupplier {
                 GridDhtPartitionSupplyMessage errMsg;
 
                 if (fallbackToFullRebalance) {
-                    // Mark the last checkpoint as not applicable for WAL rebalance and try to switch to full rebalance.
+                    // Mark the last checkpoint as not applicable for WAL rebalance.
                     grp.shared().database().lastCheckpointInapplicableForWalRebalance(grp.groupId());
-                }
 
-                errMsg = new GridDhtPartitionSupplyMessageV2(
-                    demandMsg.rebalanceId(),
-                    grp.groupId(),
-                    demandMsg.topologyVersion(),
-                    grp.deploymentEnabled(),
-                    t
-                );
+                    // Mark all remaining partitions as missed to trigger full rebalance.
+                    if (iter == null && F.isEmpty(remainingParts)) {
+                        remainingParts = new HashSet<>(demandMsg.partitions().fullSet());
+                        remainingParts.addAll(demandMsg.partitions().historicalSet());
+                    }
+
+                    for (int p : Optional.ofNullable(remainingParts).orElseGet(Collections::emptySet))
+                        supplyMsg.missed(p);
+
+                    errMsg = supplyMsg;
+                }
+                else {
+                    errMsg = new GridDhtPartitionSupplyMessageV2(
+                        demandMsg.rebalanceId(),
+                        grp.groupId(),
+                        demandMsg.topologyVersion(),
+                        grp.deploymentEnabled(),
+                        t
+                    );
+                }
 
                 reply(topicId, demanderNode, demandMsg, errMsg, ctxId);
             }
