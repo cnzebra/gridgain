@@ -213,10 +213,6 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
 
         CachePartitionFullCountersMap countersMap = grp.topology().fullUpdateCounters();
 
-        GridIntList skippedPartitionsLackHistSupplier = new GridIntList();
-
-        GridIntList skippedPartitionsCleared = new GridIntList();
-
         boolean changed = false;
 
         for (int p = 0; p < partitions; p++) {
@@ -296,12 +292,6 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
                         addHistorical(p, part.initialUpdateCounter(), countersMap.updateCounter(p), partitions);
                 }
                 else {
-                    if (histSupplier == null)
-                        skippedPartitionsLackHistSupplier.add(p);
-
-                    if (histSupplier != null && exchFut.isClearingPartition(grp, p))
-                        skippedPartitionsCleared.add(p);
-
                     List<ClusterNode> picked = remoteOwners(p, topVer);
 
                     if (picked.isEmpty()) {
@@ -333,24 +323,6 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
                         msg.partitions().addFull(p);
                     }
                 }
-            }
-        }
-
-        if (log.isInfoEnabled()) {
-            if (!skippedPartitionsLackHistSupplier.isEmpty()) {
-                log.info("Unable to perform historical rebalance cause " +
-                    "history supplier is not available [grpId=" + grp.groupId() + ", grpName=" + grp.name() +
-                    ", parts=" + S.compact(
-                        Arrays.stream(skippedPartitionsLackHistSupplier.array()).boxed().collect(Collectors.toList())) +
-                    ", topVer=" + topVer + ']');
-            }
-
-            if (!skippedPartitionsCleared.isEmpty()) {
-                log.info("Unable to perform historical rebalance because clearing is required for partitions" +
-                    "[grpId=" + grp.groupId() + ", grpName=" + grp.name() +
-                    ", parts=" + S.compact(
-                        Arrays.stream(skippedPartitionsCleared.array()).boxed().collect(Collectors.toList())) +
-                    ", topVer=" + topVer + ']');
             }
         }
 
