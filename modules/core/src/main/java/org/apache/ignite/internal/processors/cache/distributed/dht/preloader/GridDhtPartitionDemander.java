@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -1535,39 +1534,6 @@ public class GridDhtPartitionDemander {
             onDone(false); // Finishing rebalance future as non completed.
 
             checkIsDone(); // But will finish syncFuture only when other nodes are preloaded or rebalancing cancelled.
-        }
-
-        /**
-         * Cancels rebalancing from the given supplier node and will trigger force reassignment,
-         * excluding the supplier from historical rebalancing, when this future is done,
-         * along with that all partitions related to the supplier are marked as missed.
-         *
-         * @param nodeId Node id that failed rebalancing.
-         */
-        private synchronized void scheduleReassign(UUID nodeId) {
-            if (isDone())
-                return;
-
-            assert remaining.containsKey(nodeId) || exclusionsFromWalRebalance.contains(nodeId) :
-                "Remaining not found [grp=" + grp.cacheOrGroupName() + ", fromNode=" + nodeId + ']';
-
-            IgniteDhtDemandedPartitionsMap parts = remaining.remove(nodeId);
-
-            if (parts != null) {
-                U.log(log, ("Cancelled rebalancing [grp=" + grp.cacheOrGroupName() +
-                    ", supplier=" + nodeId + ", topVer=" + topologyVersion() + ']'));
-
-                cleanupRemoteContexts(nodeId);
-
-                exclusionsFromWalRebalance.add(nodeId);
-
-                IntStream.concat(
-                    parts.fullSet().stream().mapToInt(i -> i.intValue()),
-                    IntStream.range(0, parts.historicalMap().size()).map(i -> parts.historicalMap().partitionAt(i)))
-                    .forEach(p -> partitionMissed(nodeId, p));
-
-                checkIsDone(); // But will finish syncFuture only when other nodes are preloaded or rebalancing cancelled.
-            }
         }
 
         /**
