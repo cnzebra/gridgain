@@ -233,7 +233,6 @@ import org.apache.ignite.internal.processors.query.SqlQuerySystemViewsIntegratio
 import org.apache.ignite.internal.processors.query.SqlQuerySystemViewsSelfTest;
 import org.apache.ignite.internal.processors.query.SqlSchemaSelfTest;
 import org.apache.ignite.internal.processors.query.SqlSystemViewsSelfTest;
-import org.apache.ignite.internal.processors.query.SqlTopLongestQueriesTrackerIntegrationTest;
 import org.apache.ignite.internal.processors.query.h2.GridIndexRebuildSelfTest;
 import org.apache.ignite.internal.processors.query.h2.GridIndexRebuildTest;
 import org.apache.ignite.internal.processors.query.h2.H2ResultSetIteratorNullifyOnEndSelfTest;
@@ -546,8 +545,6 @@ import org.junit.runners.Suite;
     SqlMetricsOnWebConsoleSelfTest.class,
     ScanQueryConcurrentUpdatesTest.class,
     ScanQueryConcurrentSqlUpdatesTest.class,
-
-    SqlTopLongestQueriesTrackerIntegrationTest.class,
 
     GridIndexRebuildSelfTest.class,
     GridIndexRebuildTest.class,
