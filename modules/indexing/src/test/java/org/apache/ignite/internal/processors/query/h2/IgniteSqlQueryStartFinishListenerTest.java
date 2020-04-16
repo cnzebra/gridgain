@@ -175,7 +175,7 @@ public class IgniteSqlQueryStartFinishListenerTest extends AbstractIndexingCommo
             assertEquals(false, finishedInfo.local());
             assertEquals(GridCacheQueryType.SQL_FIELDS, finishedInfo.queryType());
             assertEquals(false, finishedInfo.failed());
-            assertThat(finishedInfo.finishTime() - finishedInfo.startTime(), greaterOrEqualTo(delay));
+            assertThat(finishedInfo.finishTime() - finishedInfo.startTime(), is(greaterOrEqualTo(delay)));
 
             qryStarted.set(null);
             qryFinished.set(null);
@@ -205,7 +205,7 @@ public class IgniteSqlQueryStartFinishListenerTest extends AbstractIndexingCommo
             assertEquals(true, finishedInfo.local());
             assertEquals(GridCacheQueryType.SQL_FIELDS, finishedInfo.queryType());
             assertEquals(true, finishedInfo.failed());
-            assertThat(finishedInfo.finishTime(), greaterOrEqualTo(finishedInfo.startTime()));
+            assertThat(finishedInfo.finishTime(), is(greaterOrEqualTo(finishedInfo.startTime())));
 
             qryStarted.set(null);
             qryFinished.set(null);
@@ -257,7 +257,7 @@ public class IgniteSqlQueryStartFinishListenerTest extends AbstractIndexingCommo
             latch.countDown();
         }
 
-        assertWithTimeout(lsnrCalls::get, equalTo(2 * threadCnt * quryRuns), 15_000);
+        assertWithTimeout(lsnrCalls::get, is(equalTo(2 * threadCnt * quryRuns)), 15_000);
     }
 
     /** */
