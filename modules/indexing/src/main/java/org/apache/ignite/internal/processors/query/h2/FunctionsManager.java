@@ -21,15 +21,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import org.apache.ignite.IgniteLogger;
+import org.apache.ignite.internal.processors.configuration.distributed.DistributePropertyListener;
 import org.h2.expression.function.Function;
 import org.h2.expression.function.FunctionInfo;
 
 /**
  * SQL function manager.
  */
-@SuppressWarnings("unchecked")
-public class FunctionsManager {
+public class FunctionsManager <T extends HashSet<String>> implements DistributePropertyListener<T> {
     /** Original H2 functions set. */
     private static HashMap<String, FunctionInfo> origFuncs;
 
@@ -51,35 +50,18 @@ public class FunctionsManager {
         }
     }
 
-    /** Logger. */
-    private final IgniteLogger log;
-
-    /**
-     *
-     */
-    public FunctionsManager(IgniteH2Indexing idx,
-        DistributedSqlConfiguration distSqlCfg) {
+    /** */
+    public FunctionsManager() {
         assert Objects.nonNull(funcs);
         assert Objects.nonNull(origFuncs);
-
-        log = idx.kernalContext().log(FunctionsManager.class);
-
-        distSqlCfg.listenDisabledFunctions(this::updateDisabledFunctions);
     }
 
-    /**
-     *
-     */
-    private void updateDisabledFunctions(String s, HashSet<String> oldFuncs, HashSet<String> newFuncs) {
-        if (newFuncs != null)
-            removeFunctions(newFuncs);
-        else
-            removeFunctions(DistributedSqlConfiguration.DFLT_DISABLED_FUNCS);
+    /** {@inheritDoc} */
+    @Override public void onUpdate(String s, T oldFuncs, T newFuncs) {
+        removeFunctions(newFuncs != null ? newFuncs : DistributedSqlConfiguration.DFLT_DISABLED_FUNCS);
     }
 
-    /**
-     *
-     */
+    /** */
     private static void removeFunctions(Set<String> funcNames) {
         funcs.putAll(origFuncs);
 

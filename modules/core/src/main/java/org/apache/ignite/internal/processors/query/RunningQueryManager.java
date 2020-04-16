@@ -24,15 +24,22 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.cache.query.SqlFieldsQuery;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.GridKernalContext;
+import org.apache.ignite.internal.managers.communication.GridIoPolicy;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryType;
+import org.apache.ignite.internal.processors.closure.GridClosureProcessor;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
 import org.apache.ignite.internal.processors.metric.impl.AtomicLongMetric;
 import org.apache.ignite.internal.processors.metric.impl.LongAdderMetric;
+import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.jetbrains.annotations.Nullable;
@@ -77,6 +84,9 @@ public class RunningQueryManager {
     /** */
     private final IgniteLogger log;
 
+    /** */
+    private final GridClosureProcessor closure;
+
     /** Keep registered user queries. */
     private final ConcurrentMap<Long, GridRunningQueryInfo> runs = new ConcurrentHashMap<>();
 
@@ -110,7 +120,10 @@ public class RunningQueryManager {
     private final AtomicLongMetric oomQrsCnt;
 
     /** */
-    private final TopLongestQueriesTracker topLongestQueriesTracker;
+    private final List<Consumer<GridQueryStartedInfo>> qryStartedListeners = new CopyOnWriteArrayList<>();
+
+    /** */
+    private final List<Consumer<GridQueryFinishedInfo>> qryFineshedListeners = new CopyOnWriteArrayList<>();
 
     /**
      * Constructor.
@@ -119,11 +132,10 @@ public class RunningQueryManager {
      * @param topLongestQueriesTracker tracker of longest queries.
      */
     public RunningQueryManager(GridKernalContext ctx, TopLongestQueriesTracker topLongestQueriesTracker) {
-        this.topLongestQueriesTracker = topLongestQueriesTracker;
-
         log = ctx.log(RunningQueryManager.class);
         locNodeId = ctx.localNodeId();
         histSz = ctx.config().getSqlQueryHistorySize();
+        closure = ctx.closure();
 
         qryHistTracker = new QueryHistoryTracker(histSz);
 
@@ -182,6 +194,29 @@ public class RunningQueryManager {
                 ", qry=" + qry + ']');
         }
 
+        if (!qryStartedListeners.isEmpty()) {
+            GridQueryStartedInfo info = new GridQueryStartedInfo(
+                run.id(),
+                locNodeId,
+                run.query(),
+                run.queryType(),
+                run.schemaName(),
+                run.startTime(),
+                run.local(),
+                run.queryInitiatorId()
+            );
+
+            try {
+                closure.runLocal(
+                    () -> qryStartedListeners.forEach(lsnr -> lsnr.accept(info)),
+                    GridIoPolicy.PUBLIC_POOL
+                );
+            }
+            catch (IgniteCheckedException ex) {
+                throw new IgniteException(ex.getMessage(), ex);
+            }
+        }
+
         return qryId;
     }
 
@@ -218,8 +253,30 @@ public class RunningQueryManager {
 
             qryHistTracker.collectMetrics(qry, failed);
 
-            if (topLongestQueriesTracker != null)
-                topLongestQueriesTracker.collect(qry);
+            if (!qryFineshedListeners.isEmpty()) {
+                GridQueryFinishedInfo info = new GridQueryFinishedInfo(
+                    qry.id(),
+                    locNodeId,
+                    qry.query(),
+                    qry.queryType(),
+                    qry.schemaName(),
+                    qry.startTime(),
+                    System.currentTimeMillis(),
+                    qry.local(),
+                    failed,
+                    qry.queryInitiatorId()
+                );
+
+                try {
+                    closure.runLocal(
+                        () -> qryFineshedListeners.forEach(lsnr -> lsnr.accept(info)),
+                        GridIoPolicy.PUBLIC_POOL
+                    );
+                }
+                catch (IgniteCheckedException ex) {
+                    throw new IgniteException(ex.getMessage(), ex);
+                }
+            }
 
             if (!failed)
                 successQrsCnt.increment();
@@ -238,13 +295,6 @@ public class RunningQueryManager {
     }
 
     /**
-     * @return tracker of longest queries.
-     */
-    public TopLongestQueriesTracker topLongestQueriesTracker() {
-        return topLongestQueriesTracker;
-    }
-
-    /**
      * Return SQL queries which executing right now.
      *
      * @return List of SQL running queries.
@@ -258,6 +308,44 @@ public class RunningQueryManager {
         }
 
         return res;
+    }
+
+    /**
+     * @param lsnr Listener.
+     */
+    public void registerQueryStartedListener(Consumer<GridQueryStartedInfo> lsnr) {
+        A.notNull(lsnr, "lsnr");
+
+        qryStartedListeners.add(lsnr);
+    }
+
+    /**
+     * @param lsnr Listener.
+     */
+    @SuppressWarnings("SuspiciousMethodCalls")
+    public boolean unregisterQueryStartedListener(Object lsnr) {
+        A.notNull(lsnr, "lsnr");
+
+        return qryStartedListeners.remove(lsnr);
+    }
+
+    /**
+     * @param lsnr Listener.
+     */
+    public void registerQueryFinishedListener(Consumer<GridQueryFinishedInfo> lsnr) {
+        A.notNull(lsnr, "lsnr");
+
+        qryFineshedListeners.add(lsnr);
+    }
+
+    /**
+     * @param lsnr Listener.
+     */
+    @SuppressWarnings("SuspiciousMethodCalls")
+    public boolean unregisterQueryFinishedListener(Object lsnr) {
+        A.notNull(lsnr, "lsnr");
+
+        return qryFineshedListeners.remove(lsnr);
     }
 
     /**
@@ -305,15 +393,6 @@ public class RunningQueryManager {
      * Cancel all executing queries and deregistering all of them.
      */
     public void stop() {
-        if (topLongestQueriesTracker != null) {
-            try {
-                topLongestQueriesTracker.stop();
-            }
-            catch (Exception ex) {
-                U.error(log, "Unable to stop topLongestQryTracker", ex);
-            }
-        }
-
         Iterator<GridRunningQueryInfo> iter = runs.values().iterator();
 
         while (iter.hasNext()) {
