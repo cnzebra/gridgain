@@ -129,9 +129,8 @@ public class RunningQueryManager {
      * Constructor.
      *
      * @param ctx Context.
-     * @param topLongestQueriesTracker tracker of longest queries.
      */
-    public RunningQueryManager(GridKernalContext ctx, TopLongestQueriesTracker topLongestQueriesTracker) {
+    public RunningQueryManager(GridKernalContext ctx) {
         log = ctx.log(RunningQueryManager.class);
         locNodeId = ctx.localNodeId();
         histSz = ctx.config().getSqlQueryHistorySize();

@@ -46,7 +46,7 @@ import static org.hamcrest.core.IsEqual.equalTo;
 import static org.hamcrest.core.IsNull.notNullValue;
 import static org.junit.Assert.assertThat;
 
-/** Test for SQL min() and max() optimization */
+/** Test for SQL query listeners. */
 public class IgniteSqlQueryStartFinishListenerTest extends AbstractIndexingCommonTest {
     /** Listeners. */
     private final List<Object> lsnrs = new ArrayList<>();
@@ -78,7 +78,7 @@ public class IgniteSqlQueryStartFinishListenerTest extends AbstractIndexingCommo
     @SuppressWarnings("unchecked")
     @Override protected IgniteConfiguration getConfiguration(String gridName) throws Exception {
         return super.getConfiguration(gridName)
-            .setSqlSchemas("TEST1", "TEST2")
+            .setSqlSchemas("TEST1")
             .setCacheConfiguration(
                 defaultCacheConfiguration().setSqlFunctionClasses(GridTestUtils.SqlTestFunctions.class)
             );
