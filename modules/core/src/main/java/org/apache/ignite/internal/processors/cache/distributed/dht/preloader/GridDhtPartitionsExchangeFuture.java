@@ -3350,33 +3350,36 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             if (localReserved != null) {
                 Long localHistCntr = localReserved.get(p);
 
-                if (localHistCntr != null && localHistCntr <= minCntr && maxCntrObj.nodes.contains(cctx.localNodeId())) {
+                if (localHistCntr != null && maxCntrObj.nodes.contains(cctx.localNodeId())) {
+                    if (localHistCntr <= minCntr) {
 
-                    partHistSuppliers.put(cctx.localNodeId(), top.groupId(), p, localHistCntr);
+                        partHistSuppliers.put(cctx.localNodeId(), top.groupId(), p, localHistCntr);
 
-                    haveHistory.add(p);
+                        haveHistory.add(p);
 
-                    break;
+                        continue;
+                    }
+
+                    if (deepestReserved.get2() > localHistCntr)
+                        deepestReserved.set(cctx.localNodeId(), localHistCntr);
                 }
-
-                if (localHistCntr != null && deepestReserved.get2() > localHistCntr)
-                    deepestReserved.set(cctx.localNodeId(), localHistCntr);
-
             }
 
             for (Map.Entry<UUID, GridDhtPartitionsSingleMessage> e0 : msgs.entrySet()) {
                 Long histCntr = e0.getValue().partitionHistoryCounters(top.groupId()).get(p);
 
-                if (histCntr != null && histCntr <= minCntr && maxCntrObj.nodes.contains(e0.getKey())) {
-                    partHistSuppliers.put(e0.getKey(), top.groupId(), p, histCntr);
+                if (histCntr != null && maxCntrObj.nodes.contains(e0.getKey())) {
+                    if (histCntr <= minCntr) {
+                        partHistSuppliers.put(e0.getKey(), top.groupId(), p, histCntr);
 
-                    haveHistory.add(p);
+                        haveHistory.add(p);
 
-                    break;
+                        break;
+                    }
+
+                    if (deepestReserved.get2() > histCntr)
+                        deepestReserved.set(e0.getKey(), histCntr);
                 }
-
-                if (histCntr != null && deepestReserved.get2() > histCntr)
-                    deepestReserved.set(e0.getKey(), histCntr);
             }
 
             if (!haveHistory.contains(p)) {
@@ -4057,28 +4060,59 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             throw new IgniteException("Failed to assign partition states", e);
         }
 
-        if (!F.isEmpty(supplayInfoMap)) {
+        if (log.isInfoEnabled() && !F.isEmpty(supplayInfoMap))
+            printPartiotnRebalancingFully(supplayInfoMap);
+
+        timeBag.finishGlobalStage("Assign partitions states");
+    }
+
+    /**
+     * Prints detail information about partitions which did not have reservation
+     * history enough for historical rebalance.
+     *
+     * @param supplayInfoMap Map contains information about supplying partitions.
+     */
+    private void printPartiotnRebalancingFully(Map<String, List<SupplayPartitionInfo>> supplayInfoMap) {
+        if (hasPartitonToLog(supplayInfoMap, false)) {
             log.info("Partitions do not have WAL reservation for historical rebalance: [" +
                 supplayInfoMap.entrySet().stream().map(entry ->
                     "[grp=" + entry.getKey() + " part=[" + S.compact(entry.getValue().stream()
                         .filter(info -> !info.isHistoryReserved())
                         .map(info -> info.part()).collect(Collectors.toSet())) + "]]"
                 ).collect(Collectors.joining(", ")) + ']');
-
-            log.info("WAL reservation does not enough for historical rebalance: [" +
-                    supplayInfoMap.entrySet().stream().map(entry ->
-                        "[grp=" + entry.getKey() + ' ' +
-                            entry.getValue().stream().filter(SupplayPartitionInfo::isHistoryReserved).map(info ->
-                                "[part=" + info.part() +
-                                    ", minCntr=" + info.minCntr() +
-                                    ", minNodeId=" + info.minNodeId() +
-                                    ", maxReserved=" + info.maxReserved() +
-                                    ", maxReservedNodeId=" + info.maxReservedNodeId() + ']'
-                            ).collect(Collectors.joining(", ")) + ']'
-                    ).collect(Collectors.joining(", ")) + ']');
         }
 
-        timeBag.finishGlobalStage("Assign partitions states");
+        if (hasPartitonToLog(supplayInfoMap, true)) {
+            log.info("WAL reservation does not enough for historical rebalance: [" +
+                supplayInfoMap.entrySet().stream().map(entry ->
+                    "[grp=" + entry.getKey() + ' ' +
+                        entry.getValue().stream().filter(SupplayPartitionInfo::isHistoryReserved).map(info ->
+                            "[part=" + info.part() +
+                                ", minCntr=" + info.minCntr() +
+                                ", minNodeId=" + info.minNodeId() +
+                                ", maxReserved=" + info.maxReserved() +
+                                ", maxReservedNodeId=" + info.maxReservedNodeId() + ']'
+                        ).collect(Collectors.joining(", ")) + ']'
+                ).collect(Collectors.joining(", ")) + ']');
+        }
+    }
+
+    /**
+     * Does information contain partitions which will print to log.
+     *
+     * @param supplayInfoMap Map contains information about supplying partitions.
+     * @param reserved Reservation flag.
+     * @return True if map has partitions with same reserved flag, false otherwise.
+     */
+    private boolean hasPartitonToLog(Map<String, List<SupplayPartitionInfo>> supplayInfoMap, boolean reserved) {
+        for (List<SupplayPartitionInfo> infos : supplayInfoMap.values()) {
+            for (SupplayPartitionInfo info : infos) {
+                if (info.isHistoryReserved() == reserved)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -59,6 +59,9 @@ public class CheckpointHistory {
     /** Reason means no more history reserved for the cache. */
     private static final String NO_MORE_HISTORY_REASON = "No more history for reservation";
 
+    /** Node does not have owning partitions. */
+    private static final String NO_PARTITIONS_OWNED_REASON = "No own partitions";
+
     /** Reason means a checkpoint in history reserved can not be applied for cache. */
     private static final String CHECKPOINT_NOT_APPLICABLE_REASON = "Checkpoint was marked as inapplicable for historical rebalancing";
 
@@ -466,8 +469,14 @@ public class CheckpointHistory {
                 // Remove groups from search with empty set of applicable partitions.
                 for (Map.Entry<Integer, Set<Integer>> e : new HashSet<>(groupsAndPartitions.entrySet()))
                     if (e.getValue().isEmpty()) {
-                        res.computeIfAbsent(e.getKey(), key -> new T2<>())
-                            .set1(FULL_HISTORY_REASON);
+                        res.compute(e.getKey(), (key, val) -> {
+                            if (val == null)
+                                return new T2<>(NO_PARTITIONS_OWNED_REASON, null);
+
+                            val.set1(FULL_HISTORY_REASON);
+
+                            return val;
+                        });
 
                         groupsAndPartitions.remove(e.getKey());
                     }
