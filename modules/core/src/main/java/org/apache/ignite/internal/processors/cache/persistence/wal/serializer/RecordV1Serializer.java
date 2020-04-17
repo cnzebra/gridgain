@@ -24,6 +24,7 @@ import java.nio.ByteOrder;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.pagemem.wal.WALPointer;
+import org.apache.ignite.internal.pagemem.wal.record.BrokenRecord;
 import org.apache.ignite.internal.pagemem.wal.record.FilteredRecord;
 import org.apache.ignite.internal.pagemem.wal.record.MarshalledRecord;
 import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
@@ -364,10 +365,12 @@ public class RecordV1Serializer implements RecordSerializer {
     ) throws EOFException, IgniteCheckedException {
         long startPos = -1;
 
+        WALRecord res = null;
+
         try (SimpleFileInput.Crc32CheckingFileInput in = in0.startRead(skipCrc)) {
             startPos = in0.position();
 
-            WALRecord res = reader.readWithHeaders(in, expPtr);
+            res = reader.readWithHeaders(in, expPtr);
 
             assert res != null;
 
@@ -389,9 +392,13 @@ public class RecordV1Serializer implements RecordSerializer {
                 e.addSuppressed(ignore);
             }
 
-            throw new IgniteCheckedException(
-                "Failed to read WAL record at position: " + startPos + ", size: " + size + ", expectedPtr: " + expPtr, e
-            );
+            IgniteCheckedException ex =
+                new IgniteCheckedException("Failed to read WAL record at position: " + startPos + " size: " + size, e);
+
+            if (res != null)
+                return new BrokenRecord(res, ex);
+
+            throw ex;
         }
     }
 

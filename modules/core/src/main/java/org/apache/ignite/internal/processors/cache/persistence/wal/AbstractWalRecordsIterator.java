@@ -30,6 +30,7 @@ import org.apache.ignite.internal.pagemem.wal.record.WALRecord;
 import org.apache.ignite.internal.processors.cache.GridCacheSharedContext;
 import org.apache.ignite.internal.processors.cache.persistence.file.FileIO;
 import org.apache.ignite.internal.processors.cache.persistence.file.FileIOFactory;
+import org.apache.ignite.internal.processors.cache.persistence.wal.crc.IgniteDataIntegrityViolationException;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.FileInput;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentFileInputFactory;
 import org.apache.ignite.internal.processors.cache.persistence.wal.io.SegmentIO;
@@ -292,6 +293,8 @@ public abstract class AbstractWalRecordsIterator
                 }
             }
 
+            processFailedCrc(e.getSuppressed());
+
             return null;
         }
     }
@@ -453,6 +456,21 @@ public abstract class AbstractWalRecordsIterator
         RecordSerializer ser,
         FileInput in
     );
+
+    /**
+     * Processes suppressed exception to find failed CRC validation and print warning if it found.
+     *
+     * @param suppressed An array of suppressed exceptions.
+     */
+    private void processFailedCrc(Throwable[] suppressed) {
+        for (Throwable t: suppressed) {
+            if (t.getClass() == IgniteDataIntegrityViolationException.class
+                && t.getMessage().contains("writtenCrc: 0"))
+                log.warning("CRC validation failed for record ");
+
+            break;
+        }
+    }
 
     /**
      * Filter that drops all records until given start pointer is reached.
