@@ -16,9 +16,10 @@
 
 package org.apache.ignite.internal.processors.query.h2;
 
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.processors.configuration.distributed.DistributePropertyListener;
@@ -28,12 +29,12 @@ import org.h2.expression.function.FunctionInfo;
 /**
  * SQL function manager.
  */
-public class FunctionsManager <T extends HashSet<String>> implements DistributePropertyListener<T> {
+public class FunctionsManager <T extends Set<String> & Serializable> implements DistributePropertyListener<T> {
     /** Original H2 functions set. */
-    private static HashMap<String, FunctionInfo> origFuncs;
+    private static Map<String, FunctionInfo> origFuncs;
 
     /** Current H2 functions set. */
-    private static HashMap<String, FunctionInfo> funcs;
+    private static Map<String, FunctionInfo> funcs;
 
     static {
         try {
@@ -41,7 +42,7 @@ public class FunctionsManager <T extends HashSet<String>> implements DistributeP
 
             fldFUNCTIONS.setAccessible(true);
 
-            funcs = (HashMap<String, FunctionInfo>)fldFUNCTIONS.get(Class.class);
+            funcs = (Map<String, FunctionInfo>)fldFUNCTIONS.get(Class.class);
 
             origFuncs = new HashMap<>(funcs);
         }
