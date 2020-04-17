@@ -4049,7 +4049,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                         List<SupplayPartitionInfo> list = assignPartitionStates(top);
 
                         if (supplayInfoMap != null && !F.isEmpty(list))
-                            supplayInfoMap.put(grpCtx.cacheOrGroupName(), list);
+                            supplayInfoMap.put(grpDesc.cacheOrGroupName(), list);
                     }
 
                     return null;
