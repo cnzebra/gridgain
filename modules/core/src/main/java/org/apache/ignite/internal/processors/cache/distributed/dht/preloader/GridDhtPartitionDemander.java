@@ -487,10 +487,8 @@ public class GridDhtPartitionDemander {
             // Check whether there were error during supplying process.
             if (nonNull(supplyMsg.classError()))
                 errMsg = "Supply message couldn't be unmarshalled: " + supplyMsg.classError();
-            else if (nonNull(supplyMsg.error())) {
-                errMsg = "Will try to switch to full rebalance instead of historical one. " +
-                    "Supplier has failed with error: " + supplyMsg.error();
-            }
+            else if (nonNull(supplyMsg.error()))
+                errMsg = "Supplier has failed with error: " + supplyMsg.error();
 
             if (nonNull(errMsg)) {
                 U.warn(log, "Rebalancing from node cancelled [" +
