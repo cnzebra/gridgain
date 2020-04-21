@@ -5200,8 +5200,6 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         return affinityReassign;
     }
 
-
-
     /**
      * Add or merge updates received from coordinator while exchange in progress.
      *
