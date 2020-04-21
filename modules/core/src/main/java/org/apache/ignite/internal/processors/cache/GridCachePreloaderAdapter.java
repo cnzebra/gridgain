@@ -17,7 +17,6 @@
 package org.apache.ignite.internal.processors.cache;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteLogger;
@@ -160,8 +159,7 @@ public class GridCachePreloaderAdapter implements GridCachePreloader {
     /** {@inheritDoc} */
     @Override public GridDhtPreloaderAssignments generateAssignments(
         GridDhtPartitionExchangeId exchId,
-        GridDhtPartitionsExchangeFuture exchFut,
-        Set<UUID> historicalExclusions) {
+        GridDhtPartitionsExchangeFuture exchFut) {
         return null;
     }
 

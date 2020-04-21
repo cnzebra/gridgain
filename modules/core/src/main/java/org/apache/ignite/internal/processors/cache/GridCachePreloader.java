@@ -17,7 +17,6 @@
 package org.apache.ignite.internal.processors.cache;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -75,13 +74,11 @@ public interface GridCachePreloader {
     /**
      * @param exchId Exchange ID.
      * @param exchFut Completed exchange future. Can be {@code null} if forced or reassigned generation occurs.
-     * @param historicalExclusions Set of node ids that should not be used for historical rebalance.
      * @return Partition assignments which will be requested from supplier nodes.
      */
     @Nullable public GridDhtPreloaderAssignments generateAssignments(
         GridDhtPartitionExchangeId exchId,
-        @Nullable GridDhtPartitionsExchangeFuture exchFut,
-        Set<UUID> historicalExclusions);
+        @Nullable GridDhtPartitionsExchangeFuture exchFut);
 
     /**
      * Adds assignments to preloader.

@@ -16,8 +16,6 @@
 
 package org.apache.ignite.internal.processors.cache.distributed.dht.preloader;
 
-import java.util.Set;
-import java.util.UUID;
 import org.apache.ignite.internal.processors.cache.CachePartitionExchangeWorkerTask;
 
 /**
@@ -27,9 +25,6 @@ public class RebalanceReassignExchangeTask implements CachePartitionExchangeWork
     /** */
     private final GridDhtPartitionExchangeId exchId;
 
-    /** Node ids that should not be used for historical rebalance. */
-    private final Set<UUID> nodeIds;
-
     /**
      * @param exchId Exchange ID.
      */
@@ -37,18 +32,6 @@ public class RebalanceReassignExchangeTask implements CachePartitionExchangeWork
         assert exchId != null;
 
         this.exchId = exchId;
-        this.nodeIds = null;
-    }
-
-    /**
-     * @param exchId Exchange ID.
-     * @param nodeIds Node id that has failed historical rebalance.
-     */
-    public RebalanceReassignExchangeTask(GridDhtPartitionExchangeId exchId, Set<UUID> nodeIds) {
-        assert exchId != null;
-
-        this.exchId = exchId;
-        this.nodeIds = nodeIds;
     }
 
     /** {@inheritDoc} */
@@ -61,12 +44,5 @@ public class RebalanceReassignExchangeTask implements CachePartitionExchangeWork
      */
     public GridDhtPartitionExchangeId exchangeId() {
         return exchId;
-    }
-
-    /**
-     * @return Node ids that should not be used for historical rebalance. Returned value can be {@code null}
-     */
-    public Set<UUID> historicalExclusions() {
-        return nodeIds;
     }
 }

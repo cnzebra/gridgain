@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -190,8 +189,7 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
     /** {@inheritDoc} */
     @Override public GridDhtPreloaderAssignments generateAssignments(
         GridDhtPartitionExchangeId exchId,
-        GridDhtPartitionsExchangeFuture exchFut,
-        Set<UUID> historicalExclusions
+        GridDhtPartitionsExchangeFuture exchFut
     ) {
         assert exchFut == null || exchFut.isDone();
 
@@ -276,7 +274,7 @@ public class GridDhtPreloader extends GridCachePreloaderAdapter {
                 if (grp.persistenceEnabled() && exchFut != null) {
                     UUID nodeId = exchFut.partitionHistorySupplier(grp.groupId(), p, part.initialUpdateCounter());
 
-                    if (nodeId != null && !historicalExclusions.contains(nodeId))
+                    if (nodeId != null)
                         histSupplier = ctx.discovery().node(nodeId);
                 }
 

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.processors.cache.distributed.rebalancing;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -531,7 +530,7 @@ public class RebalanceStatisticsTest extends GridCommonAbstractTest {
             if (exchFut.rebalanced())
                 U.findField(exchFut.getClass(), "rebalanced").set(exchFut, false);
 
-            GridDhtPreloaderAssignments assigns = grpCtx.preloader().generateAssignments(exchId, exchFut, Collections.emptySet());
+            GridDhtPreloaderAssignments assigns = grpCtx.preloader().generateAssignments(exchId, exchFut);
             for (Entry<ClusterNode, GridDhtPartitionDemandMessage> assignEntry : assigns.entrySet()) {
                 IgniteEx supplierNode = (IgniteEx)grid(assignEntry.getKey());
                 CacheGroupContext supGrpCtx = supplierNode.context().cache().cacheGroup(grpCtx.groupId());

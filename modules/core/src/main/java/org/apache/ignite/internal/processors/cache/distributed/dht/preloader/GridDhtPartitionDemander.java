@@ -324,7 +324,7 @@ public class GridDhtPartitionDemander {
                 return null;
             }
 
-            final RebalanceFuture fut = new RebalanceFuture(grp, assignments, log, rebalanceId, next, oldFut);
+            final RebalanceFuture fut = new RebalanceFuture(grp, lastExchangeFut, assignments, log, rebalanceId, next, oldFut);
 
             if (!grp.localWalEnabled()) {
                 fut.listen(new IgniteInClosureX<IgniteInternalFuture<Boolean>>() {
@@ -1096,12 +1096,13 @@ public class GridDhtPartitionDemander {
         /** Collection of missed partitions and partitions that could not be rebalanced from a supplier. */
         private final Map<UUID, Collection<Integer>> missed = new HashMap<>();
 
-        /** Set of nodes that cannot be used for wal rebalancing due to some reason. */
-        private Set<UUID> exclusionsFromWalRebalance = new HashSet<>();
-
         /** Exchange ID. */
         @GridToStringExclude
         private final GridDhtPartitionExchangeId exchId;
+
+        /** Coresponding exchange future. */
+        @GridToStringExclude
+        private final GridDhtPartitionsExchangeFuture exchFut;
 
         /** Topology version. */
         private final AffinityTopologyVersion topVer;
@@ -1144,6 +1145,7 @@ public class GridDhtPartitionDemander {
          * Constructor.
          *
          * @param grp Cache group context.
+         * @param exchFut Exchange future.
          * @param assignments Assignments.
          * @param log Logger.
          * @param rebalanceId Rebalance id.
@@ -1152,18 +1154,23 @@ public class GridDhtPartitionDemander {
          */
         RebalanceFuture(
             CacheGroupContext grp,
+            GridDhtPartitionsExchangeFuture exchFut,
             GridDhtPreloaderAssignments assignments,
             IgniteLogger log,
             long rebalanceId,
             RebalanceFuture next,
             RebalanceFuture previous
         ) {
-            assert assignments != null;
+            assert assignments != null : "Asiignments must not be null.";
+            assert exchFut != null && assignments.exchangeId().equals(exchFut.exchangeId()) :
+                "Exchange id of assignments and exchange future should be the same " +
+                    "[assignments=" + assignments + ", fut=" + exchFut + ']';
 
             this.rebalancingParts = U.newHashMap(assignments.size());
             this.assignments = assignments;
             exchId = assignments.exchangeId();
             topVer = assignments.topologyVersion();
+            this.exchFut = exchFut;
             this.next = next;
 
             assignments.forEach((k, v) -> {
@@ -1213,6 +1220,7 @@ public class GridDhtPartitionDemander {
             this.assignments = null;
             this.exchId = null;
             this.topVer = null;
+            this.exchFut = null;
             this.ctx = null;
             this.grp = null;
             this.log = null;
@@ -1550,7 +1558,7 @@ public class GridDhtPartitionDemander {
             if (parts.historicalMap().contains(p)) {
                 // The partition p cannot be wal rebalanced,
                 // let's exclude the given nodeId and give a try to full rebalance.
-                exclusionsFromWalRebalance.add(nodeId);
+                exchFut.excludeNodeFromWalRebalance(nodeId);
             }
 
             missed.computeIfAbsent(nodeId, k -> new HashSet<>());
@@ -1684,7 +1692,7 @@ public class GridDhtPartitionDemander {
 
                     onDone(false); // Finished but has missed partitions, will force dummy exchange
 
-                    ctx.exchange().forceReassign(exchId, exclusionsFromWalRebalance);
+                    ctx.exchange().forceReassign(exchId);
 
                     return;
                 }
