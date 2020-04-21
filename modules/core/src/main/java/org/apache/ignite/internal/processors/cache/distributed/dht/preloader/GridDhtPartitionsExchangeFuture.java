@@ -3249,7 +3249,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      * @param top Topology to assign.
      * @return Partitons supplay info list.
      */
-    private List<SupplayPartitionInfo> assignPartitionStates(GridDhtPartitionTopology top) {
+    private List<SupplyPartitionInfo> assignPartitionStates(GridDhtPartitionTopology top) {
         Map<Integer, CounterWithNodes> maxCntrs = new HashMap<>();
         Map<Integer, T2<UUID, Long>> minCntrs = new HashMap<>();
 
@@ -3331,7 +3331,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         Set<Integer> haveHistory = new HashSet<>();
 
-        List<SupplayPartitionInfo> list = new ArrayList<>();
+        List<SupplyPartitionInfo> list = new ArrayList<>();
 
         for (Map.Entry<Integer, T2<UUID, Long>> e : minCntrs.entrySet()) {
             int p = e.getKey();
@@ -3383,7 +3383,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             }
 
             if (!haveHistory.contains(p)) {
-                list.add(new SupplayPartitionInfo(
+                list.add(new SupplyPartitionInfo(
                     p,
                     minCntr,
                     e.getValue().get1(),
@@ -4029,7 +4029,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      *
      */
     private void assignPartitionsStates() {
-        Map<String, List<SupplayPartitionInfo>> supplayInfoMap = log.isInfoEnabled() ?
+        Map<String, List<SupplyPartitionInfo>> supplayInfoMap = log.isInfoEnabled() ?
             new ConcurrentHashMap<>() : null;
 
         try {
@@ -4046,7 +4046,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                     if (!CU.isPersistentCache(grpDesc.config(), cctx.gridConfig().getDataStorageConfiguration()))
                         assignPartitionSizes(top);
                     else {
-                        List<SupplayPartitionInfo> list = assignPartitionStates(top);
+                        List<SupplyPartitionInfo> list = assignPartitionStates(top);
 
                         if (supplayInfoMap != null && !F.isEmpty(list))
                             supplayInfoMap.put(grpDesc.cacheOrGroupName(), list);
@@ -4061,7 +4061,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         }
 
         if (log.isInfoEnabled() && !F.isEmpty(supplayInfoMap))
-            printPartiotnRebalancingFully(supplayInfoMap);
+            printPartitionRebalancingFully(supplayInfoMap);
 
         timeBag.finishGlobalStage("Assign partitions states");
     }
@@ -4072,9 +4072,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      *
      * @param supplayInfoMap Map contains information about supplying partitions.
      */
-    private void printPartiotnRebalancingFully(Map<String, List<SupplayPartitionInfo>> supplayInfoMap) {
+    private void printPartitionRebalancingFully(Map<String, List<SupplyPartitionInfo>> supplayInfoMap) {
         if (hasPartitonToLog(supplayInfoMap, false)) {
-            log.info("Partitions do not have WAL reservation for historical rebalance: [" +
+            log.info("Partitions weren't any history reservation: [" +
                 supplayInfoMap.entrySet().stream().map(entry ->
                     "[grp=" + entry.getKey() + " part=[" + S.compact(entry.getValue().stream()
                         .filter(info -> !info.isHistoryReserved())
@@ -4083,10 +4083,10 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         }
 
         if (hasPartitonToLog(supplayInfoMap, true)) {
-            log.info("WAL reservation does not enough for historical rebalance: [" +
+            log.info("Partitions were reserved, but maximum available counter is greater than demanded: [" +
                 supplayInfoMap.entrySet().stream().map(entry ->
                     "[grp=" + entry.getKey() + ' ' +
-                        entry.getValue().stream().filter(SupplayPartitionInfo::isHistoryReserved).map(info ->
+                        entry.getValue().stream().filter(SupplyPartitionInfo::isHistoryReserved).map(info ->
                             "[part=" + info.part() +
                                 ", minCntr=" + info.minCntr() +
                                 ", minNodeId=" + info.minNodeId() +
@@ -4104,9 +4104,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      * @param reserved Reservation flag.
      * @return True if map has partitions with same reserved flag, false otherwise.
      */
-    private boolean hasPartitonToLog(Map<String, List<SupplayPartitionInfo>> supplayInfoMap, boolean reserved) {
-        for (List<SupplayPartitionInfo> infos : supplayInfoMap.values()) {
-            for (SupplayPartitionInfo info : infos) {
+    private boolean hasPartitonToLog(Map<String, List<SupplyPartitionInfo>> supplayInfoMap, boolean reserved) {
+        for (List<SupplyPartitionInfo> infos : supplayInfoMap.values()) {
+            for (SupplyPartitionInfo info : infos) {
                 if (info.isHistoryReserved() == reserved)
                     return true;
             }

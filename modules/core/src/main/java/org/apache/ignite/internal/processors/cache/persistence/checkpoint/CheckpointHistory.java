@@ -51,22 +51,22 @@ import static org.apache.ignite.IgniteSystemProperties.IGNITE_PDS_MAX_CHECKPOINT
  */
 public class CheckpointHistory {
     /** The message appears when no one checkpoint was not reserved for cache. */
-    private static final String NOT_RESERVED_WAL_REASON = "If checkpoint WAL history can't be reserved";
+    private static final String NOT_RESERVED_WAL_REASON = "Failed to perform reservation of historical WAL segment file";
 
     /** The message puts down to log when an exception happened during reading reserved WAL. */
     private static final String WAL_SEG_CORRUPTED_REASON = "Segment corrupted";
 
     /** Reason means no more history reserved for the cache. */
-    private static final String NO_MORE_HISTORY_REASON = "No more history for reservation";
+    private static final String NO_MORE_HISTORY_REASON = "Reserved checkpoint is the oldest in history";
 
     /** Node does not have owning partitions. */
-    private static final String NO_PARTITIONS_OWNED_REASON = "No own partitions";
+    private static final String NO_PARTITIONS_OWNED_REASON = "Node didn't own any partitions for this group at the time of checkpoint";
 
     /** Reason means a checkpoint in history reserved can not be applied for cache. */
     private static final String CHECKPOINT_NOT_APPLICABLE_REASON = "Checkpoint was marked as inapplicable for historical rebalancing";
 
     /** That means all history reserved for cache. */
-    private static final String FULL_HISTORY_REASON = "Reserved full history for group";
+    private static final String FULL_HISTORY_REASON = "Full history were reserved";
 
     /** Logger. */
     private final IgniteLogger log;

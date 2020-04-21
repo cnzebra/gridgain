@@ -1889,7 +1889,7 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         if (!F.isEmpty(reservedCaches)) {
-            log.info("Caches were reserved in WAL not deeper than last checkpoint by specified reason [" +
+            log.info("Reserved cache groups with first reserved checkpoint IDs and reasons why previous checkpoint was inapplicable: [" +
                 reservedCaches.entrySet().stream()
                     .map(entry -> {
                         CheckpointEntry minCpEntry = entry.getValue().get2().values().stream()

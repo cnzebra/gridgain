@@ -20,9 +20,9 @@ import java.util.UUID;
 import org.apache.ignite.internal.util.typedef.internal.S;
 
 /**
- * Information about supplayer for specific partition.
+ * Information about supplier for specific partition.
  */
-public class SupplayPartitionInfo {
+public class SupplyPartitionInfo {
     /**
      * Number of partiiton.
      */
@@ -55,7 +55,7 @@ public class SupplayPartitionInfo {
      * @param maxReserved Max reservation.
      * @param maxReservedNodeId Node with maximum reservation.
      */
-    public SupplayPartitionInfo(int part, long minCntr, UUID minNodeId, long maxReserved, UUID maxReservedNodeId) {
+    public SupplyPartitionInfo(int part, long minCntr, UUID minNodeId, long maxReserved, UUID maxReservedNodeId) {
         this.part = part;
         this.minCntr = minCntr;
         this.minNodeId = minNodeId;
@@ -107,6 +107,6 @@ public class SupplayPartitionInfo {
 
     /** {@inheritDoc} */
     @Override public String toString() {
-        return S.toString(SupplayPartitionInfo.class, this);
+        return S.toString(SupplyPartitionInfo.class, this);
     }
 }

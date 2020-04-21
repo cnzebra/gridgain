@@ -92,34 +92,21 @@ public class IgniteWalRebalanceLoggingTest extends GridCommonAbstractTest {
      *         created.</li>
      *         <li>Start, previously stopped node and await for PME.</li>
      *     </ol>
-     *  <p>
-     *      <b>Expected result:</b>
-     *      Assert that (after restarting second node) log would contain following messages expected number of times:
-     *      <ul>
-     *          <li>'Following partitions were reserved for potential history rebalance [groupId=1813188848
-     *          parts=[0-7], groupId=1813188847 parts=[0-7]]'
-     *          Meaning that partitions were reserved for history rebalance.</li>
-     *          <li>'Starting rebalance routine [cache_group1, topVer=AffinityTopologyVersion [topVer=4, minorTopVer=0],
-     *          supplier=*, fullPartitions=[0], histPartitions=[0-7]]' Meaning that history rebalance started.</li>
-     *      </ul>
-     *      And assert that (after restarting second node) log would <b>not</b> contain following messages:
-     *      <ul>
-     *          <li>Unable to perform historical rebalance...</li>
-     *      </ul>
+     * <p>
      * @throws Exception If failed.
      */
     @Test
     @WithSystemProperty(key = IGNITE_PDS_WAL_REBALANCE_THRESHOLD, value = "1")
     public void testHistoricalRebalanceLogMsg() throws Exception {
         LogListener expMsgsLsnr = LogListener.matches(str ->
-            str.startsWith("Caches were reserved in WAL not deeper than last checkpoint by specified reason") &&
+            str.startsWith("Reserved cache groups with first reserved checkpoint IDs and reasons why previous checkpoint was inapplicable:") &&
                 str.contains("cache_group1") && str.contains("cache_group2")).times(3).
             andMatches(str -> (str.contains("cache_group1") || str.contains("cache_group2")) &&
                 str.contains("fullPartitions=[], histPartitions=[0-7]")).times(2).build();
 
         LogListener unexpectedMessagesLsnr = LogListener.matches((str) ->
-            str.startsWith("Partitions do not have WAL reservation for historical rebalance") ||
-                str.startsWith("WAL reservation does not enough for historical rebalance")
+            str.startsWith("Partitions weren't any history reservation:") ||
+                str.startsWith("Partitions were reserved, but maximum available counter is greater than demanded:")
         ).build();
 
         checkFollowingPartitionsWereReservedForPotentialHistoryRebalanceMsg(expMsgsLsnr, unexpectedMessagesLsnr);
@@ -141,24 +128,14 @@ public class IgniteWalRebalanceLoggingTest extends GridCommonAbstractTest {
      *         created.</li>
      *         <li>Start, previously stopped node and await for PME.</li>
      *     </ol>
-     *  <p>
-     *      <b>Expected result:</b>
-     *      Assert that (after restarting second node) log would contain following messages expected number of times:
-     *      <ul>
-     *          <li>'Following partitions were reserved for potential history rebalance []'
-     *          Meaning that no partitions were reserved for history rebalance.</li>
-     *          <li>'Unable to perform historical rebalance cause history supplier is not available'</li>
-     *          <li>'Unable to perform historical rebalance cause partition is supposed to be cleared'</li>
-     *          <li>'Starting rebalance routine [cache_group1, topVer=AffinityTopologyVersion [topVer=4, minorTopVer=0],
-     *          supplier=* fullPartitions=[0-7], histPartitions=[]]'</li>
-     *      </ul>
+     * <p>
      * @throws Exception If failed.
      */
     @Test
     @WithSystemProperty(key = IGNITE_PDS_WAL_REBALANCE_THRESHOLD, value = "500000")
     public void testFullRebalanceLogMsgs() throws Exception {
         LogListener expMsgsLsnr = LogListener.
-            matches("Partitions do not have WAL reservation for historical rebalance: " +
+            matches("Partitions weren't any history reservation: " +
                 "[[grp=cache_group2 part=[[0-7]]], [grp=cache_group1 part=[[0-7]]]]").
             andMatches(str -> (str.contains("cache_group1") || str.contains("cache_group2")) &&
                 str.contains("fullPartitions=[0-7], histPartitions=[]")).times(2).build();
