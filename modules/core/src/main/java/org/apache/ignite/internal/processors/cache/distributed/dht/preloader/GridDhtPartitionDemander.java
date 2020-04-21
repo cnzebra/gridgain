@@ -1162,8 +1162,8 @@ public class GridDhtPartitionDemander {
             RebalanceFuture previous
         ) {
             assert assignments != null : "Asiignments must not be null.";
-            assert exchFut != null && assignments.exchangeId().equals(exchFut.exchangeId()) :
-                "Exchange id of assignments and exchange future should be the same " +
+            assert exchFut != null && assignments.topologyVersion().equals(exchFut.context().events().topologyVersion()) :
+                "Topology version of assignments and exchange future should be the same " +
                     "[assignments=" + assignments + ", fut=" + exchFut + ']';
 
             this.rebalancingParts = U.newHashMap(assignments.size());
