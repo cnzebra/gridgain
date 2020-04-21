@@ -51,6 +51,7 @@ import org.apache.ignite.internal.processors.cache.persistence.CacheDataRow;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.F;
 import org.apache.ignite.internal.util.typedef.T3;
+import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.LT;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -478,11 +479,6 @@ public class GridDhtPartitionSupplier {
                 log.info("Finished supplying rebalancing [" + supplyRoutineInfo(topicId, nodeId, demandMsg) + "]");
         }
         catch (Throwable t) {
-            boolean fallbackToFullRebalance = (iter == null) ?
-                // Rebalance iterator has not been created, perhaps, due to unable to replay wal.
-                demandMsg.partitions().hasHistorical() :
-                !iter.allHistoricalPartitionsDone();
-
             if (iter != null && !iter.isClosed()) {
                 try {
                     iter.close();
@@ -520,6 +516,8 @@ public class GridDhtPartitionSupplier {
 
             if (!sendErrMsg)
                 return;
+
+            boolean fallbackToFullRebalance = X.hasCause(t, IgniteHistoricalIteratorException.class);
 
             try {
                 GridDhtPartitionSupplyMessage errMsg;
